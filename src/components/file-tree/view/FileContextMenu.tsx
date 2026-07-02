@@ -1,4 +1,14 @@
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent, type ReactNode } from 'react';
+import {
+  Fragment,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type MouseEvent as ReactMouseEvent,
+  type ReactNode,
+  type TouchEvent as ReactTouchEvent,
+} from 'react';
 import { useTranslation } from 'react-i18next';
 import { Copy, Download, FileText, FolderPlus, Pencil, RefreshCw, Trash2, type LucideIcon } from 'lucide-react';
 import { cn } from '../../../lib/utils';
@@ -28,6 +38,8 @@ type ContextMenuAction = {
 const CONTEXT_MENU_WIDTH = 200;
 const CONTEXT_MENU_HEIGHT = 300;
 const VIEWPORT_PADDING = 10;
+const LONG_PRESS_DURATION_MS = 500;
+const LONG_PRESS_MOVE_TOLERANCE_PX = 12;
 
 function calculateViewportSafePosition(clientX: number, clientY: number) {
   // Keep the context menu inside the visible viewport.
@@ -72,17 +84,91 @@ export default function FileContextMenu({
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [menuPosition, setMenuPosition] = useState({ x: 0, y: 0 });
   const menuRef = useRef<HTMLDivElement>(null);
+  const longPressTimerRef = useRef<number | null>(null);
+  const touchOriginRef = useRef<{ x: number; y: number } | null>(null);
+  const longPressTriggeredRef = useRef(false);
 
   const closeContextMenu = useCallback(() => {
     setIsMenuOpen(false);
+  }, []);
+
+  const openContextMenuAtPosition = useCallback((clientX: number, clientY: number) => {
+    setMenuPosition(calculateViewportSafePosition(clientX, clientY));
+    setIsMenuOpen(true);
   }, []);
 
   const openContextMenuAtCursor = useCallback((event: ReactMouseEvent<HTMLDivElement>) => {
     event.preventDefault();
     event.stopPropagation();
 
-    setMenuPosition(calculateViewportSafePosition(event.clientX, event.clientY));
-    setIsMenuOpen(true);
+    openContextMenuAtPosition(event.clientX, event.clientY);
+  }, [openContextMenuAtPosition]);
+
+  const clearLongPressTimer = useCallback(() => {
+    if (longPressTimerRef.current !== null) {
+      window.clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+  }, []);
+
+  const handleTouchStart = useCallback((event: ReactTouchEvent<HTMLDivElement>) => {
+    if (event.touches.length !== 1) {
+      clearLongPressTimer();
+      touchOriginRef.current = null;
+      return;
+    }
+
+    const touch = event.touches[0];
+    touchOriginRef.current = { x: touch.clientX, y: touch.clientY };
+    longPressTriggeredRef.current = false;
+    clearLongPressTimer();
+
+    longPressTimerRef.current = window.setTimeout(() => {
+      longPressTriggeredRef.current = true;
+      openContextMenuAtPosition(touch.clientX, touch.clientY);
+      longPressTimerRef.current = null;
+    }, LONG_PRESS_DURATION_MS);
+  }, [clearLongPressTimer, openContextMenuAtPosition]);
+
+  const handleTouchMove = useCallback((event: ReactTouchEvent<HTMLDivElement>) => {
+    const origin = touchOriginRef.current;
+    if (!origin || event.touches.length !== 1) {
+      clearLongPressTimer();
+      return;
+    }
+
+    const touch = event.touches[0];
+    const deltaX = Math.abs(touch.clientX - origin.x);
+    const deltaY = Math.abs(touch.clientY - origin.y);
+    if (deltaX > LONG_PRESS_MOVE_TOLERANCE_PX || deltaY > LONG_PRESS_MOVE_TOLERANCE_PX) {
+      clearLongPressTimer();
+    }
+  }, [clearLongPressTimer]);
+
+  const handleTouchEnd = useCallback((event: ReactTouchEvent<HTMLDivElement>) => {
+    clearLongPressTimer();
+    touchOriginRef.current = null;
+
+    if (longPressTriggeredRef.current) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+  }, [clearLongPressTimer]);
+
+  const handleTouchCancel = useCallback(() => {
+    clearLongPressTimer();
+    touchOriginRef.current = null;
+    longPressTriggeredRef.current = false;
+  }, [clearLongPressTimer]);
+
+  const handleClickCapture = useCallback((event: ReactMouseEvent<HTMLDivElement>) => {
+    if (!longPressTriggeredRef.current) {
+      return;
+    }
+
+    event.preventDefault();
+    event.stopPropagation();
+    longPressTriggeredRef.current = false;
   }, []);
 
   const runMenuActionAndClose = useCallback((action?: () => void) => {
@@ -201,6 +287,13 @@ export default function FileContextMenu({
       }
     };
 
+    const handleOutsideTouchStart = (event: TouchEvent) => {
+      const menuElement = menuRef.current;
+      if (menuElement && !menuElement.contains(event.target as Node)) {
+        closeContextMenu();
+      }
+    };
+
     const handleEscapeKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         closeContextMenu();
@@ -208,13 +301,19 @@ export default function FileContextMenu({
     };
 
     document.addEventListener('mousedown', handleOutsideMouseDown);
+    document.addEventListener('touchstart', handleOutsideTouchStart);
     document.addEventListener('keydown', handleEscapeKeyDown);
 
     return () => {
       document.removeEventListener('mousedown', handleOutsideMouseDown);
+      document.removeEventListener('touchstart', handleOutsideTouchStart);
       document.removeEventListener('keydown', handleEscapeKeyDown);
     };
   }, [closeContextMenu, isMenuOpen]);
+
+  useEffect(() => () => {
+    clearLongPressTimer();
+  }, [clearLongPressTimer]);
 
   useEffect(() => {
     if (!isMenuOpen) {
@@ -256,7 +355,15 @@ export default function FileContextMenu({
 
   return (
     <>
-      <div onContextMenu={openContextMenuAtCursor} className={cn('contents', className)}>
+      <div
+        onContextMenu={openContextMenuAtCursor}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        onTouchCancel={handleTouchCancel}
+        onClickCapture={handleClickCapture}
+        className={cn('contents', className)}
+      >
         {children}
       </div>
 
