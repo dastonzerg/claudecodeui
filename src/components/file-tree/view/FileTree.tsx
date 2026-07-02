@@ -102,7 +102,7 @@ export default function FileTree({ selectedProject, onFileOpen }: FileTreeProps)
   const handleItemClick = useCallback(
     (item: FileTreeNode) => {
       if (item.type === 'directory') {
-        setSelectedDirectoryPath(item.path);
+        setSelectedDirectoryPath((prev) => (prev === item.path ? null : item.path));
         toggleDirectory(item.path);
         return;
       }
