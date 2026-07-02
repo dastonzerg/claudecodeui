@@ -11,6 +11,7 @@ import {
 
 type UseFileTreeUploadOptions = {
   selectedProject: Project | null;
+  selectedDirectoryPath?: string | null;
   onRefresh: () => void;
   showToast: (message: string, type: 'success' | 'error') => void;
 };
@@ -243,6 +244,7 @@ const collectDroppedFiles = async (dataTransfer: DataTransfer) => {
 
 export const useFileTreeUpload = ({
   selectedProject,
+  selectedDirectoryPath = null,
   onRefresh,
   showToast,
 }: UseFileTreeUploadOptions) => {
@@ -376,9 +378,9 @@ export const useFileTreeUpload = ({
 
   const handleFileSelect = useCallback(
     async (fileList: FileList | File[]) => {
-      await uploadFiles(Array.from(fileList), '');
+      await uploadFiles(Array.from(fileList), selectedDirectoryPath || '');
     },
-    [uploadFiles],
+    [selectedDirectoryPath, uploadFiles],
   );
 
   const handleDragEnter = useCallback((e: DragEvent) => {

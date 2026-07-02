@@ -31,6 +31,7 @@ type FileTreeProps = {
 export default function FileTree({ selectedProject, onFileOpen }: FileTreeProps) {
   const { t } = useTranslation();
   const [selectedImage, setSelectedImage] = useState<FileTreeImageSelection | null>(null);
+  const [selectedDirectoryPath, setSelectedDirectoryPath] = useState<string | null>(null);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const newItemInputRef = useRef<HTMLInputElement>(null);
   const renameInputRef = useRef<HTMLInputElement>(null);
@@ -66,6 +67,7 @@ export default function FileTree({ selectedProject, onFileOpen }: FileTreeProps)
   // File upload (drag and drop)
   const upload = useFileTreeUpload({
     selectedProject,
+    selectedDirectoryPath,
     onRefresh: refreshFiles,
     showToast,
   });
@@ -87,6 +89,10 @@ export default function FileTree({ selectedProject, onFileOpen }: FileTreeProps)
     }
   }, [operations.renamingItem]);
 
+  useEffect(() => {
+    setSelectedDirectoryPath(null);
+  }, [selectedProject?.projectId]);
+
   const renderFileIcon = useCallback((filename: string) => {
     const { icon: Icon, color } = getFileIconData(filename);
     return <Icon className={cn(ICON_SIZE_CLASS, color)} />;
@@ -96,6 +102,7 @@ export default function FileTree({ selectedProject, onFileOpen }: FileTreeProps)
   const handleItemClick = useCallback(
     (item: FileTreeNode) => {
       if (item.type === 'directory') {
+        setSelectedDirectoryPath(item.path);
         toggleDirectory(item.path);
         return;
       }
