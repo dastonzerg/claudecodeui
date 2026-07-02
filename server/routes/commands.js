@@ -37,16 +37,30 @@ const readModelProvider = (value) => {
 const hasConcreteSessionId = (value) =>
   typeof value === "string" && value.trim().length > 0;
 
-const resolveCommandModel = async (provider, catalog, sessionId) => {
-  if (!hasConcreteSessionId(sessionId)) {
-    return catalog.DEFAULT;
+// Resolves the model shown by /models, /cost, and /status. The session's own
+// transcript/store is the most authoritative source (it reflects what the CLI
+// actually used) - but every provider's getCurrentActiveModel() silently
+// falls back to the provider's hardcoded catalog default when that lookup
+// can't find anything yet (e.g. a session with no turns recorded), so it
+// never returns a falsy `.model` we could branch on directly. A brand-new
+// chat is exactly that case: the picker the user just used to start it is
+// already sending the model it selected as `context.model` on every command
+// call, so prefer that over the hardcoded default whenever the provider
+// lookup didn't actually resolve to anything more specific.
+const resolveCommandModel = async (provider, catalog, sessionId, clientModel) => {
+  const hasClientModel = typeof clientModel === "string" && clientModel.trim().length > 0;
+
+  if (hasConcreteSessionId(sessionId)) {
+    const currentActiveModel = await providerModelsService.getCurrentActiveModel(
+      provider,
+      sessionId,
+    );
+    if (currentActiveModel?.model && currentActiveModel.model !== catalog.DEFAULT) {
+      return currentActiveModel.model;
+    }
   }
 
-  const currentActiveModel = await providerModelsService.getCurrentActiveModel(
-    provider,
-    sessionId,
-  );
-  return currentActiveModel?.model || catalog.DEFAULT;
+  return hasClientModel ? clientModel.trim() : catalog.DEFAULT;
 };
 
 export const executeModelsCommand = async (args, context) => {
@@ -57,6 +71,7 @@ export const executeModelsCommand = async (args, context) => {
     currentProvider,
     catalog,
     context?.sessionId,
+    context?.model,
   );
   const availableModels = catalog.OPTIONS.map((option) => option.value);
   const availableOptions = catalog.OPTIONS.map((option) => ({
@@ -256,7 +271,7 @@ Custom commands can be created in:
     const tokenUsage = context?.tokenUsage || {};
     const provider = readModelProvider(context?.provider);
     const catalog = (await providerModelsService.getProviderModels(provider)).models;
-    const model = await resolveCommandModel(provider, catalog, context?.sessionId);
+    const model = await resolveCommandModel(provider, catalog, context?.sessionId, context?.model);
 
     const reportedUsed =
       Number(
@@ -359,7 +374,7 @@ Custom commands can be created in:
 
     const statusProvider = readModelProvider(context?.provider);
     const statusCatalog = (await providerModelsService.getProviderModels(statusProvider)).models;
-    const model = await resolveCommandModel(statusProvider, statusCatalog, context?.sessionId);
+    const model = await resolveCommandModel(statusProvider, statusCatalog, context?.sessionId, context?.model);
     const memoryUsage = process.memoryUsage();
 
     return {
