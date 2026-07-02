@@ -2,6 +2,7 @@ import { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import JSZip from 'jszip';
 import { api } from '../../../utils/api';
+import { copyTextToClipboard } from '../../../utils/clipboard';
 import type { FileTreeNode } from '../types/types';
 import type { Project } from '../../../types/app';
 
@@ -239,12 +240,12 @@ export function useFileTreeOperations({
   }, [selectedProject, newItemParent, newItemType, newItemName, validateFilename, showToast, t, onRefresh, handleCancelCreate]);
 
   // Copy path to clipboard
-  const handleCopyPath = useCallback((item: FileTreeNode) => {
-    navigator.clipboard.writeText(item.path).catch(() => {
-      // Clipboard API may fail in some contexts (e.g., non-HTTPS)
+  const handleCopyPath = useCallback(async (item: FileTreeNode) => {
+    const copied = await copyTextToClipboard(item.path);
+    if (!copied) {
       showToast(t('fileTree.toast.copyFailed', 'Failed to copy path'), 'error');
       return;
-    });
+    }
     showToast(t('fileTree.toast.pathCopied', 'Path copied to clipboard'), 'success');
   }, [showToast, t]);
 
