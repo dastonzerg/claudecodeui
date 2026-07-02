@@ -1,11 +1,14 @@
 import {
   Fragment,
+  cloneElement,
+  isValidElement,
   useCallback,
   useEffect,
   useMemo,
   useRef,
   useState,
   type MouseEvent as ReactMouseEvent,
+  type ReactElement,
   type ReactNode,
   type TouchEvent as ReactTouchEvent,
 } from 'react';
@@ -353,8 +356,61 @@ export default function FileContextMenu({
     };
   }, [isMenuOpen]);
 
-  return (
-    <>
+  const childElement = isValidElement(children)
+    ? children as ReactElement<{
+      className?: string;
+      onContextMenu?: (event: ReactMouseEvent<HTMLDivElement>) => void;
+      onTouchStart?: (event: ReactTouchEvent<HTMLDivElement>) => void;
+      onTouchMove?: (event: ReactTouchEvent<HTMLDivElement>) => void;
+      onTouchEnd?: (event: ReactTouchEvent<HTMLDivElement>) => void;
+      onTouchCancel?: (event: ReactTouchEvent<HTMLDivElement>) => void;
+      onClickCapture?: (event: ReactMouseEvent<HTMLDivElement>) => void;
+    }>
+    : null;
+
+  const trigger = childElement
+    ? cloneElement(childElement, {
+      onContextMenu: (event: ReactMouseEvent<HTMLDivElement>) => {
+        const originalHandler = childElement.props.onContextMenu;
+        originalHandler?.(event);
+        if (!event.defaultPrevented) {
+          openContextMenuAtCursor(event);
+        }
+      },
+      onTouchStart: (event: ReactTouchEvent<HTMLDivElement>) => {
+        const originalHandler = childElement.props.onTouchStart;
+        originalHandler?.(event);
+        if (!event.defaultPrevented) {
+          handleTouchStart(event);
+        }
+      },
+      onTouchMove: (event: ReactTouchEvent<HTMLDivElement>) => {
+        const originalHandler = childElement.props.onTouchMove;
+        originalHandler?.(event);
+        if (!event.defaultPrevented) {
+          handleTouchMove(event);
+        }
+      },
+      onTouchEnd: (event: ReactTouchEvent<HTMLDivElement>) => {
+        const originalHandler = childElement.props.onTouchEnd;
+        originalHandler?.(event);
+        handleTouchEnd(event);
+      },
+      onTouchCancel: (event: ReactTouchEvent<HTMLDivElement>) => {
+        const originalHandler = childElement.props.onTouchCancel;
+        originalHandler?.(event);
+        handleTouchCancel();
+      },
+      onClickCapture: (event: ReactMouseEvent<HTMLDivElement>) => {
+        const originalHandler = childElement.props.onClickCapture;
+        originalHandler?.(event);
+        if (!event.defaultPrevented) {
+          handleClickCapture(event);
+        }
+      },
+      className: cn(childElement.props.className, className),
+    })
+    : (
       <div
         onContextMenu={openContextMenuAtCursor}
         onTouchStart={handleTouchStart}
@@ -362,10 +418,15 @@ export default function FileContextMenu({
         onTouchEnd={handleTouchEnd}
         onTouchCancel={handleTouchCancel}
         onClickCapture={handleClickCapture}
-        className={cn('contents', className)}
+        className={className}
       >
         {children}
       </div>
+    );
+
+  return (
+    <>
+      {trigger}
 
       {isMenuOpen && (
         <div
