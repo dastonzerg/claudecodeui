@@ -7,6 +7,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type HTMLAttributes,
   type MouseEvent as ReactMouseEvent,
   type ReactElement,
   type ReactNode,
@@ -283,14 +284,7 @@ export default function FileContextMenu({
       return;
     }
 
-    const handleOutsideMouseDown = (event: MouseEvent) => {
-      const menuElement = menuRef.current;
-      if (menuElement && !menuElement.contains(event.target as Node)) {
-        closeContextMenu();
-      }
-    };
-
-    const handleOutsideTouchStart = (event: TouchEvent) => {
+    const handleOutsideInteraction = (event: MouseEvent | TouchEvent) => {
       const menuElement = menuRef.current;
       if (menuElement && !menuElement.contains(event.target as Node)) {
         closeContextMenu();
@@ -303,13 +297,13 @@ export default function FileContextMenu({
       }
     };
 
-    document.addEventListener('mousedown', handleOutsideMouseDown);
-    document.addEventListener('touchstart', handleOutsideTouchStart);
+    document.addEventListener('mousedown', handleOutsideInteraction);
+    document.addEventListener('touchstart', handleOutsideInteraction);
     document.addEventListener('keydown', handleEscapeKeyDown);
 
     return () => {
-      document.removeEventListener('mousedown', handleOutsideMouseDown);
-      document.removeEventListener('touchstart', handleOutsideTouchStart);
+      document.removeEventListener('mousedown', handleOutsideInteraction);
+      document.removeEventListener('touchstart', handleOutsideInteraction);
       document.removeEventListener('keydown', handleEscapeKeyDown);
     };
   }, [closeContextMenu, isMenuOpen]);
@@ -357,57 +351,17 @@ export default function FileContextMenu({
   }, [isMenuOpen]);
 
   const childElement = isValidElement(children)
-    ? children as ReactElement<{
-      className?: string;
-      onContextMenu?: (event: ReactMouseEvent<HTMLDivElement>) => void;
-      onTouchStart?: (event: ReactTouchEvent<HTMLDivElement>) => void;
-      onTouchMove?: (event: ReactTouchEvent<HTMLDivElement>) => void;
-      onTouchEnd?: (event: ReactTouchEvent<HTMLDivElement>) => void;
-      onTouchCancel?: (event: ReactTouchEvent<HTMLDivElement>) => void;
-      onClickCapture?: (event: ReactMouseEvent<HTMLDivElement>) => void;
-    }>
+    ? children as ReactElement<HTMLAttributes<HTMLElement>>
     : null;
 
   const trigger = childElement
     ? cloneElement(childElement, {
-      onContextMenu: (event: ReactMouseEvent<HTMLDivElement>) => {
-        const originalHandler = childElement.props.onContextMenu;
-        originalHandler?.(event);
-        if (!event.defaultPrevented) {
-          openContextMenuAtCursor(event);
-        }
-      },
-      onTouchStart: (event: ReactTouchEvent<HTMLDivElement>) => {
-        const originalHandler = childElement.props.onTouchStart;
-        originalHandler?.(event);
-        if (!event.defaultPrevented) {
-          handleTouchStart(event);
-        }
-      },
-      onTouchMove: (event: ReactTouchEvent<HTMLDivElement>) => {
-        const originalHandler = childElement.props.onTouchMove;
-        originalHandler?.(event);
-        if (!event.defaultPrevented) {
-          handleTouchMove(event);
-        }
-      },
-      onTouchEnd: (event: ReactTouchEvent<HTMLDivElement>) => {
-        const originalHandler = childElement.props.onTouchEnd;
-        originalHandler?.(event);
-        handleTouchEnd(event);
-      },
-      onTouchCancel: (event: ReactTouchEvent<HTMLDivElement>) => {
-        const originalHandler = childElement.props.onTouchCancel;
-        originalHandler?.(event);
-        handleTouchCancel();
-      },
-      onClickCapture: (event: ReactMouseEvent<HTMLDivElement>) => {
-        const originalHandler = childElement.props.onClickCapture;
-        originalHandler?.(event);
-        if (!event.defaultPrevented) {
-          handleClickCapture(event);
-        }
-      },
+      onContextMenu: openContextMenuAtCursor,
+      onTouchStart: handleTouchStart,
+      onTouchMove: handleTouchMove,
+      onTouchEnd: handleTouchEnd,
+      onTouchCancel: handleTouchCancel,
+      onClickCapture: handleClickCapture,
       className: cn(childElement.props.className, className),
     })
     : (
