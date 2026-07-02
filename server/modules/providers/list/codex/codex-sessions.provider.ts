@@ -31,6 +31,74 @@ function isVisibleCodexUserMessage(payload: AnyRecord | null | undefined): boole
   return typeof payload.message === 'string' && payload.message.trim().length > 0;
 }
 
+const CODEX_IMAGE_CONTENT_TYPES = new Set(['input_image', 'output_image', 'image']);
+
+/**
+ * Codex's `view_image` tool (and similar) embed the actual file as a base64
+ * data URL directly in the function_call_output — often hundreds of KB to
+ * several MB for a single photo. Left as-is, that blob gets re-parsed on
+ * every history fetch, serialized into the API response, and rendered as a
+ * giant text block in the browser, which is enough to hang or crash the tab.
+ * Codex's own CLI shows these as "[image #1]"; mirror that here instead of
+ * passing the raw bytes through.
+ */
+function sanitizeCodexToolOutput(output: unknown): unknown {
+  if (!Array.isArray(output)) {
+    return output;
+  }
+
+  let imageIndex = 0;
+  let sawImage = false;
+  let allTextLike = true;
+
+  const sanitizedItems = output.map((item) => {
+    if (typeof item === 'string') {
+      return item;
+    }
+
+    if (!item || typeof item !== 'object') {
+      allTextLike = false;
+      return item;
+    }
+
+    const record = item as AnyRecord;
+    const isImagePart = CODEX_IMAGE_CONTENT_TYPES.has(record.type as string)
+      || (typeof record.image_url === 'string' && record.image_url.startsWith('data:'));
+
+    if (isImagePart) {
+      sawImage = true;
+      imageIndex += 1;
+      return { type: 'text', text: `[image #${imageIndex}]` };
+    }
+
+    if (typeof record.text !== 'string') {
+      allTextLike = false;
+    }
+
+    return item;
+  });
+
+  if (!sawImage) {
+    // Nothing to sanitize — leave the array exactly as it was.
+    return output;
+  }
+
+  if (!allTextLike) {
+    // Mixed content we don't fully recognize alongside an image part — the
+    // dangerous part (raw image bytes) is already replaced above; keep the
+    // rest of the structure as-is rather than guessing at a text rendering.
+    return sanitizedItems;
+  }
+
+  // Every part is plain text (including the image placeholders) — collapse
+  // to a single string so the frontend renders it directly instead of
+  // JSON.stringify-ing an array, matching Codex's own "[image #1]" display.
+  return sanitizedItems
+    .map((item) => (typeof item === 'string' ? item : (item as AnyRecord).text as string))
+    .filter(Boolean)
+    .join('\n');
+}
+
 function extractCodexTextContent(content: unknown): string {
   if (!Array.isArray(content)) {
     return typeof content === 'string' ? content : '';
@@ -173,7 +241,7 @@ async function getCodexSessionMessages(
             type: 'tool_result',
             timestamp: entry.timestamp,
             toolCallId: entry.payload.call_id,
-            output: entry.payload.output,
+            output: sanitizeCodexToolOutput(entry.payload.output),
           });
         }
 
@@ -223,7 +291,7 @@ async function getCodexSessionMessages(
             type: 'tool_result',
             timestamp: entry.timestamp,
             toolCallId: entry.payload.call_id,
-            output: entry.payload.output || '',
+            output: sanitizeCodexToolOutput(entry.payload.output) || '',
           });
         }
       } catch {

@@ -35,6 +35,77 @@ type ClaudeHistoryMessagesResult =
     limit?: number | null;
   };
 
+function isClaudeImageContentPart(part: AnyRecord): boolean {
+  if (part.type === 'image') {
+    return true;
+  }
+  const source = part.source as AnyRecord | undefined;
+  return Boolean(source && typeof source === 'object' && typeof source.data === 'string' && source.data.length > 0);
+}
+
+/**
+ * Tools that return images (most notably Read on an image file) embed the
+ * actual file as base64 directly in the tool_result content block — often
+ * hundreds of KB to several MB. Left as-is, that blob gets re-parsed on
+ * every history fetch, JSON.stringify'd whole into the API response, and
+ * rendered as a giant text block in the browser, which is enough to hang or
+ * crash the tab. Replace image parts with a lightweight "[image #1]"
+ * placeholder instead of passing the raw bytes through.
+ */
+function sanitizeClaudeToolResultContent(content: unknown): unknown {
+  if (!Array.isArray(content)) {
+    return content;
+  }
+
+  let imageIndex = 0;
+  let allTextLike = true;
+
+  const sanitizedItems = content.map((item) => {
+    if (typeof item === 'string') {
+      return item;
+    }
+
+    if (!item || typeof item !== 'object') {
+      allTextLike = false;
+      return item;
+    }
+
+    const record = item as AnyRecord;
+    if (isClaudeImageContentPart(record)) {
+      imageIndex += 1;
+      return { type: 'text', text: `[image #${imageIndex}]` };
+    }
+
+    if (typeof record.text !== 'string') {
+      allTextLike = false;
+    }
+
+    return item;
+  });
+
+  // Ordinary tool results are almost always a single text block wrapped in
+  // this array form — collapse to a plain string whenever every part reduced
+  // cleanly to text (image placeholders included), regardless of whether an
+  // image was actually present. Only fall back to the (image-sanitized) raw
+  // array shape for genuinely mixed/unrecognized content.
+  if (!allTextLike) {
+    return sanitizedItems;
+  }
+
+  return sanitizedItems
+    .map((item) => (typeof item === 'string' ? item : (item as AnyRecord).text as string))
+    .filter(Boolean)
+    .join('\n');
+}
+
+function formatClaudeToolResultContent(content: unknown): string {
+  if (typeof content === 'string') {
+    return content;
+  }
+  const sanitized = sanitizeClaudeToolResultContent(content);
+  return typeof sanitized === 'string' ? sanitized : JSON.stringify(sanitized);
+}
+
 async function parseAgentTools(filePath: string): Promise<AnyRecord[]> {
   const tools: AnyRecord[] = [];
 
@@ -78,13 +149,7 @@ async function parseAgentTools(filePath: string): Promise<AnyRecord[]> {
             }
 
             tool.toolResult = {
-              content: typeof part.content === 'string'
-                ? part.content
-                : Array.isArray(part.content)
-                  ? part.content
-                    .map((contentPart: AnyRecord) => contentPart?.text || '')
-                    .join('\n')
-                  : JSON.stringify(part.content),
+              content: formatClaudeToolResultContent(part.content),
               isError: Boolean(part.is_error),
             };
           }
@@ -323,7 +388,7 @@ export class ClaudeSessionsProvider implements IProviderSessions {
               provider: PROVIDER,
               kind: 'tool_result',
               toolId: part.tool_use_id,
-              content: typeof part.content === 'string' ? part.content : JSON.stringify(part.content),
+              content: formatClaudeToolResultContent(part.content),
               isError: Boolean(part.is_error),
               subagentTools: raw.subagentTools,
               toolUseResult: raw.toolUseResult,
@@ -600,9 +665,7 @@ export class ClaudeSessionsProvider implements IProviderSessions {
         }
 
         msg.toolResult = {
-          content: typeof toolResult.content === 'string'
-            ? toolResult.content
-            : JSON.stringify(toolResult.content),
+          content: formatClaudeToolResultContent(toolResult.content),
           isError: toolResult.isError,
           toolUseResult: toolResult.toolUseResult,
         };
