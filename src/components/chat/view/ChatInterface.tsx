@@ -113,7 +113,6 @@ function ChatInterface({
     allMessagesLoaded,
     isLoadingAllMessages,
     loadAllJustFinished,
-    showLoadAllOverlay,
     createDiff,
     scrollContainerRef,
     scrollToBottom,
@@ -351,7 +350,6 @@ function ChatInterface({
           allMessagesLoaded={allMessagesLoaded}
           isLoadingAllMessages={isLoadingAllMessages}
           loadAllJustFinished={loadAllJustFinished}
-          showLoadAllOverlay={showLoadAllOverlay}
           createDiff={createDiff}
           onFileOpen={onFileOpen}
           onShowSettings={onShowSettings}

@@ -58,7 +58,6 @@ interface ChatMessagesPaneProps {
   allMessagesLoaded: boolean;
   isLoadingAllMessages: boolean;
   loadAllJustFinished: boolean;
-  showLoadAllOverlay: boolean;
   createDiff: any;
   onFileOpen?: (filePath: string, diffInfo?: unknown) => void;
   onShowSettings?: () => void;
@@ -108,7 +107,6 @@ function ChatMessagesPane({
   allMessagesLoaded,
   isLoadingAllMessages,
   loadAllJustFinished,
-  showLoadAllOverlay,
   createDiff,
   onFileOpen,
   onShowSettings,
@@ -209,33 +207,38 @@ function ChatMessagesPane({
             </div>
           )}
 
-          {/* Explicit control for fetching the previous page (hide when all loaded).
-              Deliberately not auto-triggered by scroll position — doing so used to
-              fight the browser's native momentum scroll on mobile and made the
-              viewport shake as older messages were prepended mid-gesture. */}
-          {hasMoreMessages && !isLoadingMoreMessages && !allMessagesLoaded && (
-            <div className="border-b border-gray-200 py-2 text-center text-sm text-gray-500 dark:border-gray-700 dark:text-gray-400">
-              {totalMessages > 0 && (
-                <span className="mr-2">
-                  {t('session.messages.showingOf', { shown: sessionMessagesCount, total: totalMessages })}
-                </span>
+          {/* Explicit controls for fetching earlier history — deliberately not
+              auto-triggered by scroll position (fighting the browser's native
+              momentum scroll on mobile used to shake the viewport), and always
+              rendered together as one unit rather than each fading in/out on
+              its own schedule, which used to shove the viewport up or down
+              independently of any actual message-list height change. */}
+          {((hasMoreMessages && !allMessagesLoaded) || isLoadingAllMessages || loadAllJustFinished) && (
+            <div className="border-b border-gray-200 pb-2 dark:border-gray-700">
+              {hasMoreMessages && !isLoadingMoreMessages && !allMessagesLoaded && (
+                <div className="py-2 text-center text-sm text-gray-500 dark:text-gray-400">
+                  {totalMessages > 0 && (
+                    <span className="mr-2">
+                      {t('session.messages.showingOf', { shown: sessionMessagesCount, total: totalMessages })}
+                    </span>
+                  )}
+                  <button
+                    className="text-blue-600 underline hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
+                    onClick={loadMoreMessages}
+                  >
+                    {t('session.messages.loadMore', 'Load more')}
+                  </button>
+                </div>
               )}
-              <button
-                className="text-blue-600 underline hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
-                onClick={loadMoreMessages}
-              >
-                {t('session.messages.loadMore', 'Load more')}
-              </button>
+
+              <LoadAllMessagesOverlay
+                isLoadingAllMessages={isLoadingAllMessages}
+                loadAllJustFinished={loadAllJustFinished}
+                totalMessages={totalMessages}
+                onLoadAllMessages={loadAllMessages}
+              />
             </div>
           )}
-
-          <LoadAllMessagesOverlay
-            showLoadAllOverlay={showLoadAllOverlay}
-            isLoadingAllMessages={isLoadingAllMessages}
-            loadAllJustFinished={loadAllJustFinished}
-            totalMessages={totalMessages}
-            onLoadAllMessages={loadAllMessages}
-          />
 
           {/* Legacy message count indicator (for non-paginated view) */}
           {!hasMoreMessages && chatMessages.length > visibleMessageCount && (
