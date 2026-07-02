@@ -137,10 +137,19 @@ function ChatInterface({
   // the session gateway before the first send. Record it locally and put it
   // in the URL — this id never changes again, so there is no later handoff.
   const handleSessionEstablished = useCallback<NonNullable<ChatInterfaceProps['onSessionEstablished']>>((sessionId, context) => {
+    // Permission mode is normally persisted per-session by cyclePermissionMode,
+    // but that can only write once a session id exists — a mode picked before
+    // the very first send (while still on the empty-state composer) never got
+    // saved. Without this, the session-scoped effect in useChatProviderState
+    // finds nothing under this brand-new id and silently resets the picker
+    // (and every message after the first) back to 'default', even though the
+    // first send itself already went out correctly with the mode the user
+    // actually chose.
+    localStorage.setItem(`permissionMode-${sessionId}`, permissionMode);
     setCurrentSessionId(sessionId);
     onSessionEstablished?.(sessionId, context);
     onNavigateToSession?.(sessionId);
-  }, [setCurrentSessionId, onSessionEstablished, onNavigateToSession]);
+  }, [setCurrentSessionId, onSessionEstablished, onNavigateToSession, permissionMode]);
 
   const {
     input,
