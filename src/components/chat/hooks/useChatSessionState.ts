@@ -127,6 +127,7 @@ export function useChatSessionState({
   const pendingInitialScrollRef = useRef(true);
   const messagesOffsetRef = useRef(0);
   const scrollPositionRef = useRef({ height: 0, top: 0 });
+  const lastFollowedMessageCountRef = useRef(0);
   const loadAllFinishedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastLoadedSessionKeyRef = useRef<string | null>(null);
   /**
@@ -183,6 +184,7 @@ export function useChatSessionState({
     pendingScrollRestoreRef.current = null;
     pendingInitialScrollRef.current = true;
     lastLoadedSessionKeyRef.current = null;
+    lastFollowedMessageCountRef.current = 0;
 
     if (loadAllFinishedTimerRef.current) {
       clearTimeout(loadAllFinishedTimerRef.current);
@@ -391,6 +393,7 @@ export function useChatSessionState({
       setVisibleMessageCount(INITIAL_VISIBLE_MESSAGES);
     }
     pendingScrollRestoreRef.current = null;
+    lastFollowedMessageCountRef.current = 0;
     setIsUserScrolledUp(false);
   }, [selectedProject?.projectId, selectedSession?.id]);
 
@@ -496,6 +499,7 @@ export function useChatSessionState({
     setIsLoadingAllMessages(false);
     setLoadAllJustFinished(false);
     setViewHiddenCount(0);
+    lastFollowedMessageCountRef.current = 0;
     if (loadAllFinishedTimerRef.current) clearTimeout(loadAllFinishedTimerRef.current);
 
     if (sessionChanged) {
@@ -700,6 +704,15 @@ export function useChatSessionState({
     if (!scrollContainerRef.current || chatMessages.length === 0) return;
     if (isLoadingMoreRef.current || isLoadingMoreMessages || pendingScrollRestoreRef.current) return;
     if (searchScrollActiveRef.current) return;
+
+    // Only follow when a message actually arrived, not merely because the
+    // user's own scroll crossed the near-bottom threshold — isUserScrolledUp
+    // flips off that threshold too, and force-snapping scrollTop the instant
+    // it does fights the user's own scroll gesture, reading as an abrupt
+    // bounce distinct from the browser's native (smooth) overscroll rubber-band.
+    const grewByNewMessage = chatMessages.length > lastFollowedMessageCountRef.current;
+    lastFollowedMessageCountRef.current = chatMessages.length;
+    if (!grewByNewMessage) return;
 
     if (!isUserScrolledUp) {
       setTimeout(() => scrollToBottom(), 50);
