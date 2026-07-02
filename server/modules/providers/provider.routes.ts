@@ -557,6 +557,15 @@ router.get(
   }),
 );
 
+router.get(
+  '/sessions/:sessionId/resume-info',
+  asyncHandler(async (req: Request, res: Response) => {
+    const sessionId = parseSessionId(req.params.sessionId);
+    const resumeInfo = sessionsService.getSessionResumeInfo(sessionId);
+    res.json(createApiSuccessResponse(resumeInfo));
+  }),
+);
+
 router.delete(
   '/sessions/:sessionId',
   asyncHandler(async (req: Request, res: Response) => {

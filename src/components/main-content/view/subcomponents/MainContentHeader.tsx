@@ -3,6 +3,7 @@ import type { MainContentHeaderProps } from '../../types/types';
 import MobileMenuButton from './MobileMenuButton';
 import MainContentTabSwitcher from './MainContentTabSwitcher';
 import MainContentTitle from './MainContentTitle';
+import SessionResumeDialog from './SessionResumeDialog';
 
 export default function MainContentHeader({
   activeTab,
@@ -47,25 +48,34 @@ export default function MainContentHeader({
           />
         </div>
 
-        <div className="relative min-w-0 flex-shrink overflow-hidden sm:flex-shrink-0">
-          {canScrollLeft && (
-            <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-6 bg-gradient-to-r from-background to-transparent" />
-          )}
-          <div
-            ref={scrollRef}
-            onScroll={updateScrollState}
-            className="scrollbar-hide overflow-x-auto"
-          >
-            <MainContentTabSwitcher
-              activeTab={activeTab}
-              setActiveTab={setActiveTab}
-              shouldShowTasksTab={shouldShowTasksTab}
-              shouldShowBrowserTab={shouldShowBrowserTab}
+        <div className="flex min-w-0 flex-shrink items-center gap-2 sm:flex-shrink-0">
+          {activeTab === 'chat' && selectedSession && (
+            <SessionResumeDialog
+              selectedProject={selectedProject}
+              selectedSession={selectedSession}
             />
-          </div>
-          {canScrollRight && (
-            <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-6 bg-gradient-to-l from-background to-transparent" />
           )}
+
+          <div className="relative min-w-0 overflow-hidden">
+            {canScrollLeft && (
+              <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-6 bg-gradient-to-r from-background to-transparent" />
+            )}
+            <div
+              ref={scrollRef}
+              onScroll={updateScrollState}
+              className="scrollbar-hide overflow-x-auto"
+            >
+              <MainContentTabSwitcher
+                activeTab={activeTab}
+                setActiveTab={setActiveTab}
+                shouldShowTasksTab={shouldShowTasksTab}
+                shouldShowBrowserTab={shouldShowBrowserTab}
+              />
+            </div>
+            {canScrollRight && (
+              <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-6 bg-gradient-to-l from-background to-transparent" />
+            )}
+          </div>
         </div>
       </div>
     </div>

@@ -1,10 +1,12 @@
 import { randomUUID } from 'node:crypto';
 import fsp from 'node:fs/promises';
+import os from 'node:os';
 import path from 'node:path';
 
 import { projectsDb, sessionsDb } from '@/modules/database/index.js';
 import { chatRunRegistry } from '@/modules/websocket/index.js';
 import { providerRegistry } from '@/modules/providers/provider.registry.js';
+import { buildProviderShellCommand, normalizeCommandPlatform, scopeCommandToProject } from '@/shared/utils.js';
 import type {
   FetchHistoryOptions,
   FetchHistoryResult,
@@ -30,6 +32,22 @@ type ArchivedSessionListItem = {
   updatedAt: string | null;
   lastActivity: string | null;
   isProjectArchived: boolean;
+};
+
+type SessionResumeInfo = {
+  provider: LLMProvider;
+  appSessionId: string;
+  providerSessionId: string | null;
+  projectPath: string;
+  hostPlatform: NodeJS.Platform;
+  canResume: boolean;
+  reason: string | null;
+  resumeCommand: string | null;
+  resumeCommandWindows: string | null;
+  resumeCommandPosix: string | null;
+  startCommand: string;
+  startCommandWindows: string;
+  startCommandPosix: string;
 };
 
 /**
@@ -304,5 +322,61 @@ export const sessionsService = {
 
     sessionsDb.updateSessionCustomName(sessionId, summary);
     return { sessionId, summary };
+  },
+
+  /**
+   * Resolves the provider-native resume id and project directory for one
+   * app-facing session, and returns copy-ready native CLI commands.
+   */
+  getSessionResumeInfo(sessionId: string): SessionResumeInfo {
+    const session = sessionsDb.getSessionById(sessionId);
+    if (!session) {
+      throw new AppError(`Session "${sessionId}" was not found.`, {
+        code: 'SESSION_NOT_FOUND',
+        statusCode: 404,
+      });
+    }
+
+    const provider = session.provider as LLMProvider;
+    const projectPath = session.project_path?.trim();
+    if (!projectPath) {
+      throw new AppError(`Session "${sessionId}" does not have a project path.`, {
+        code: 'SESSION_PROJECT_PATH_NOT_FOUND',
+        statusCode: 409,
+      });
+    }
+
+    const liveRun = chatRunRegistry.getRun(sessionId);
+    const providerSessionId = liveRun?.providerSessionId ?? session.provider_session_id ?? null;
+    const hostPlatform = os.platform();
+    const hostCommandPlatform = normalizeCommandPlatform(hostPlatform);
+    const reason = providerSessionId
+      ? null
+      : 'Provider session ID is not available yet. Start the session and wait for the CLI to announce it before resuming natively.';
+
+    const buildScopedCommand = (platform: 'win32' | 'posix', resume: boolean): string => {
+      const providerCommand = buildProviderShellCommand({
+        provider,
+        resumeSessionId: resume ? providerSessionId : null,
+        platform,
+      });
+      return scopeCommandToProject(projectPath, providerCommand, platform);
+    };
+
+    return {
+      provider,
+      appSessionId: sessionId,
+      providerSessionId,
+      projectPath,
+      hostPlatform,
+      canResume: Boolean(providerSessionId),
+      reason,
+      resumeCommand: providerSessionId ? buildScopedCommand(hostCommandPlatform, true) : null,
+      resumeCommandWindows: providerSessionId ? buildScopedCommand('win32', true) : null,
+      resumeCommandPosix: providerSessionId ? buildScopedCommand('posix', true) : null,
+      startCommand: buildScopedCommand(hostCommandPlatform, false),
+      startCommandWindows: buildScopedCommand('win32', false),
+      startCommandPosix: buildScopedCommand('posix', false),
+    };
   },
 };

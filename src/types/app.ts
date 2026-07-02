@@ -37,6 +37,22 @@ export interface ProjectSession {
   [key: string]: unknown;
 }
 
+export interface SessionResumeInfo {
+  provider: LLMProvider;
+  appSessionId: string;
+  providerSessionId: string | null;
+  projectPath: string;
+  hostPlatform: string;
+  canResume: boolean;
+  reason: string | null;
+  resumeCommand: string | null;
+  resumeCommandWindows: string | null;
+  resumeCommandPosix: string | null;
+  startCommand: string;
+  startCommandWindows: string;
+  startCommandPosix: string;
+}
+
 export interface ProjectSessionMeta {
   total?: number;
   hasMore?: boolean;

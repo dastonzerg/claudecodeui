@@ -5,7 +5,8 @@ import path from 'node:path';
 import pty, { type IPty } from 'node-pty';
 import { WebSocket, type RawData } from 'ws';
 
-import { parseIncomingJsonObject } from '@/shared/utils.js';
+import type { LLMProvider } from '@/shared/types.js';
+import { buildProviderShellCommand, normalizeCommandPlatform, parseIncomingJsonObject } from '@/shared/utils.js';
 
 type ShellIncomingMessage = {
   type?: string;
@@ -129,46 +130,17 @@ function buildShellCommand(
     return initialCommand;
   }
 
-  if (provider === 'cursor') {
-    if (resumeSessionId) {
-      return `cursor-agent --resume="${resumeSessionId}"`;
-    }
-    return 'cursor-agent';
-  }
+  const resolvedProvider: LLMProvider =
+    provider === 'cursor' || provider === 'codex' || provider === 'gemini' || provider === 'opencode'
+      ? provider
+      : 'claude';
 
-  if (provider === 'codex') {
-    if (resumeSessionId) {
-      if (os.platform() === 'win32') {
-        return `codex resume "${resumeSessionId}"; if ($LASTEXITCODE -ne 0) { codex }`;
-      }
-      return `codex resume "${resumeSessionId}" || codex`;
-    }
-    return 'codex';
-  }
-
-  if (provider === 'gemini') {
-    const command = initialCommand || 'gemini';
-    if (resumeSessionId) {
-      return `${command} --resume "${resumeSessionId}"`;
-    }
-    return command;
-  }
-
-  if (provider === 'opencode') {
-    if (resumeSessionId) {
-      return `opencode --session "${resumeSessionId}"`;
-    }
-    return initialCommand || 'opencode';
-  }
-
-  const command = initialCommand || 'claude';
-  if (resumeSessionId) {
-    if (os.platform() === 'win32') {
-      return `claude --resume "${resumeSessionId}"; if ($LASTEXITCODE -ne 0) { claude }`;
-    }
-    return `claude --resume "${resumeSessionId}" || claude`;
-  }
-  return command;
+  return buildProviderShellCommand({
+    provider: resolvedProvider,
+    resumeSessionId,
+    initialCommand,
+    platform: normalizeCommandPlatform(os.platform()),
+  });
 }
 
 function readEnvValue(env: NodeJS.ProcessEnv, key: string): string | undefined {
