@@ -611,21 +611,28 @@
       opacity: 1 !important;
     }
     
-    button, 
-    [role="button"],
-    .clickable,
-    a,
-    .cursor-pointer {
-      -webkit-tap-highlight-color: transparent;
-      user-select: none;
-      -webkit-user-select: none;
-      touch-action: manipulation;
-    }
-    
-    /* Better mobile touch targets */
-    .mobile-touch-target {
-      @apply min-h-[44px] min-w-[44px];
-    }
+button,
+[role="button"],
+.clickable,
+a,
+.cursor-pointer {
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: manipulation;
+}
+
+.sidebar-title-edit-input {
+  -webkit-user-select: text !important;
+  user-select: text !important;
+  -webkit-touch-callout: default !important;
+  touch-action: auto !important;
+}
+
+/* Better mobile touch targets */
+.mobile-touch-target {
+  @apply min-h-[44px] min-w-[44px];
+}
     
     /* Chat message improvements */
     .chat-message.user {

@@ -82,19 +82,25 @@ export default function SidebarSessionItem({
   const isEditing = editingSession === session.id;
   const compactSessionAge = formatCompactSessionAge(sessionView.sessionTime, currentTime);
   const editingContainerRef = useRef<HTMLDivElement>(null);
+  const mobileEditingContainerRef = useRef<HTMLDivElement>(null);
   const showRecentIndicator = !isProcessing && sessionView.isActive;
 
   // The rename panel sits inside a group-hover opacity wrapper, so leaving the row
   // would visually hide it. While editing, dismiss only when the user clicks outside
   // the panel (matches Escape / cancel-button behaviour).
+  // Desktop and mobile render separate DOM subtrees (toggled via CSS, not unmounted),
+  // so both containers must be checked - otherwise the mobile row is always "outside"
+  // the desktop-only ref and every tap immediately cancels editing.
   useEffect(() => {
     if (!isEditing) {
       return;
     }
 
     const handlePointerDown = (event: MouseEvent) => {
-      const container = editingContainerRef.current;
-      if (container && !container.contains(event.target as Node)) {
+      const target = event.target as Node;
+      const insideDesktop = editingContainerRef.current?.contains(target) ?? false;
+      const insideMobile = mobileEditingContainerRef.current?.contains(target) ?? false;
+      if (!insideDesktop && !insideMobile) {
         onCancelEditingSession();
       }
     };
@@ -134,8 +140,10 @@ export default function SidebarSessionItem({
 
       <div className="md:hidden">
         <div
+          ref={mobileEditingContainerRef}
           className={cn(
-            'p-2 mx-3 my-0.5 rounded-md bg-card border active:scale-[0.98] transition-all duration-150 relative',
+            'p-2 mx-3 my-0.5 rounded-md bg-card border transition-all duration-150 relative',
+            !isEditing && 'active:scale-[0.98]',
             isSelected ? 'bg-primary/5 border-primary/20' : '',
             !isSelected && isProcessing
               ? 'border-border/60 bg-muted/20'
@@ -143,7 +151,7 @@ export default function SidebarSessionItem({
               ? 'border-green-500/30 bg-green-50/5 dark:bg-green-900/5'
               : 'border-border/30',
           )}
-          onClick={selectMobileSession}
+          onClick={isEditing ? undefined : selectMobileSession}
         >
           <div className="flex items-center gap-2">
             <div
@@ -156,40 +164,111 @@ export default function SidebarSessionItem({
             </div>
 
             <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-2">
-                <div className="min-w-0 flex-1 truncate text-sm font-normal text-foreground">{sessionView.sessionName}</div>
-                {isProcessing ? (
-                  <span className="ml-auto flex-shrink-0">
-                    <Tooltip content={t('tooltips.processingSessionIndicator', 'Processing session')} position="top">
+              {isEditing ? (
+                <input
+                  type="text"
+                  value={editingSessionName}
+                  onChange={(event) => onEditingSessionNameChange(event.target.value)}
+                  onPointerDown={(event) => event.stopPropagation()}
+                  onTouchStart={(event) => event.stopPropagation()}
+                  onKeyDown={(event) => {
+                    event.stopPropagation();
+                    if (event.key === 'Enter') {
+                      saveEditedSession();
+                    } else if (event.key === 'Escape') {
+                      onCancelEditingSession();
+                    }
+                  }}
+                  onClick={(event) => event.stopPropagation()}
+                  className="sidebar-title-edit-input w-full rounded-lg border-2 border-primary/40 bg-background px-3 py-2 text-sm text-foreground shadow-sm transition-all duration-200 focus:border-primary focus:shadow-md focus:outline-none"
+                  autoFocus
+                  autoComplete="off"
+                  style={{
+                    fontSize: '16px',
+                    WebkitAppearance: 'none',
+                    borderRadius: '8px',
+                  }}
+                />
+              ) : (
+                <>
+                  <div className="flex items-center gap-2">
+                    <div className="min-w-0 flex-1 truncate text-sm font-normal text-foreground">
+                      {sessionView.sessionName}
+                    </div>
+                    {isProcessing ? (
+                      <span className="ml-auto flex-shrink-0">
+                        <Tooltip content={t('tooltips.processingSessionIndicator', 'Processing session')} position="top">
                       <span className="flex h-5 w-5 items-center justify-center rounded-md text-muted-foreground">
                         <Loader2 className="h-3 w-3 animate-spin" />
                       </span>
                     </Tooltip>
-                  </span>
-                ) : compactSessionAge && (
-                  <span className="ml-auto flex-shrink-0 text-[11px] text-muted-foreground">{compactSessionAge}</span>
-                )}
-              </div>
-              <div className="mt-0.5 flex items-center">
-                {sessionView.messageCount > 0 && (
-                  <Badge variant="secondary" className="px-1 py-0 text-xs">
+                      </span>
+                    ) : compactSessionAge && (
+                      <span className="ml-auto flex-shrink-0 text-[11px] text-muted-foreground">{compactSessionAge}</span>
+                    )}
+                  </div>
+                  <div className="mt-0.5 flex items-center">
+                    {sessionView.messageCount > 0 && (
+                      <Badge variant="secondary" className="px-1 py-0 text-xs">
                     {sessionView.messageCount}
                   </Badge>
-                )}
-              </div>
+                    )}
+                  </div>
+                </>
+              )}
             </div>
 
-            {!isProcessing && (
-              <button
-                className="ml-1 flex h-5 w-5 items-center justify-center rounded-md bg-red-50 opacity-70 transition-transform active:scale-95 dark:bg-red-900/20"
-                onClick={(event) => {
-                  event.stopPropagation();
-                  requestDeleteSession();
-                }}
-              >
-                <Trash2 className="h-2.5 w-2.5 text-red-600 dark:text-red-400" />
-              </button>
-            )}
+            <div className="ml-1 flex items-center gap-1">
+              {isEditing ? (
+                <>
+                  <button
+                    className="flex h-8 w-8 items-center justify-center rounded-lg bg-green-500 shadow-sm transition-all duration-150 active:scale-90 active:shadow-none dark:bg-green-600"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      saveEditedSession();
+                    }}
+                    title={t('tooltips.save')}
+                  >
+                    <Check className="h-4 w-4 text-white" />
+                  </button>
+                  <button
+                    className="flex h-8 w-8 items-center justify-center rounded-lg bg-gray-500 shadow-sm transition-all duration-150 active:scale-90 active:shadow-none dark:bg-gray-600"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onCancelEditingSession();
+                    }}
+                    title={t('tooltips.cancel')}
+                  >
+                    <X className="h-4 w-4 text-white" />
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    className="flex h-8 w-8 items-center justify-center rounded-lg border border-primary/20 bg-primary/10 active:scale-90 dark:border-primary/30 dark:bg-primary/20"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onStartEditingSession(session.id, sessionView.sessionName);
+                    }}
+                    title={t('tooltips.editSessionName')}
+                  >
+                    <Edit2 className="h-4 w-4 text-primary" />
+                  </button>
+                  {!isProcessing && (
+                    <button
+                      className="flex h-8 w-8 items-center justify-center rounded-lg border border-red-200 bg-red-500/10 active:scale-90 dark:border-red-800 dark:bg-red-900/30"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        requestDeleteSession();
+                      }}
+                      title={t('tooltips.deleteSessionOptions', 'Archive or permanently delete this session')}
+                    >
+                      <Trash2 className="h-4 w-4 text-red-600 dark:text-red-400" />
+                    </button>
+                  )}
+                </>
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -271,6 +350,8 @@ export default function SidebarSessionItem({
                   type="text"
                   value={editingSessionName}
                   onChange={(event) => onEditingSessionNameChange(event.target.value)}
+                  onPointerDown={(event) => event.stopPropagation()}
+                  onTouchStart={(event) => event.stopPropagation()}
                   onKeyDown={(event) => {
                     event.stopPropagation();
                     if (event.key === 'Enter') {
