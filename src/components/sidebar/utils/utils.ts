@@ -108,7 +108,10 @@ export const getAllSessions = (project: Project): SessionWithProvider[] => {
 export const getProjectLastActivity = (project: Project): Date => {
   const sessions = getAllSessions(project);
   if (sessions.length === 0) {
-    return new Date(0);
+    // No sessions yet (e.g. a freshly created project) - treat it as the
+    // most recent thing so it pops to the top under Recent Activity sorting
+    // instead of sinking to the bottom behind every project with a session.
+    return new Date(8640000000000000);
   }
 
   return sessions.reduce((latest, session) => {
