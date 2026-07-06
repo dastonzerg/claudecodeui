@@ -1,4 +1,4 @@
-import { Activity, Archive, Folder, FolderPlus, MessageSquare, Plus, RefreshCw, Search, X, PanelLeftClose } from 'lucide-react';
+import { Activity, Archive, BellDot, CheckCheck, Folder, FolderPlus, MessageSquare, Plus, RefreshCw, Search, X, PanelLeftClose } from 'lucide-react';
 import type { TFunction } from 'i18next';
 
 import { Button, Input, Tooltip } from '../../../../shared/view/ui';
@@ -18,6 +18,8 @@ type SidebarHeaderProps = {
   isLoading: boolean;
   projectsCount: number;
   runningSessionsCount: number;
+  unreadSessionsCount: number;
+  onMarkAllSessionsRead: () => void;
   archivedSessionsCount: number;
   isArchivedSessionsLoading: boolean;
   searchFilter: string;
@@ -38,6 +40,8 @@ export default function SidebarHeader({
   isLoading,
   projectsCount,
   runningSessionsCount,
+  unreadSessionsCount,
+  onMarkAllSessionsRead,
   archivedSessionsCount,
   isArchivedSessionsLoading,
   searchFilter,
@@ -51,15 +55,18 @@ export default function SidebarHeader({
   onCollapseSidebar,
   t,
 }: SidebarHeaderProps) {
-  const showSearchTools = (projectsCount > 0 || runningSessionsCount > 0 || archivedSessionsCount > 0 || isArchivedSessionsLoading) && !isLoading;
+  const showSearchTools = (projectsCount > 0 || runningSessionsCount > 0 || unreadSessionsCount > 0 || archivedSessionsCount > 0 || isArchivedSessionsLoading) && !isLoading;
   const searchPlaceholder = searchMode === 'conversations'
     ? t('search.conversationsPlaceholder')
     : searchMode === 'archived'
       ? t('search.archivedPlaceholder', 'Search archived sessions...')
       : searchMode === 'running'
         ? t('search.runningPlaceholder', 'Search running sessions...')
-        : t('projects.searchPlaceholder');
+        : searchMode === 'unread'
+          ? t('search.unreadPlaceholder', 'Search unread sessions...')
+          : t('projects.searchPlaceholder');
   const runningBadgeText = runningSessionsCount > 99 ? '99+' : String(runningSessionsCount);
+  const unreadBadgeText = unreadSessionsCount > 99 ? '99+' : String(unreadSessionsCount);
 
   const LogoBlock = () => (
     <div className="flex min-w-0 items-center gap-2.5">
@@ -98,6 +105,20 @@ export default function SidebarHeader({
           )}
 
           <div className="flex flex-shrink-0 items-center gap-0.5">
+            {unreadSessionsCount > 0 && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="relative h-7 w-7 rounded-lg p-0 text-sky-600 hover:bg-sky-500/10 dark:text-sky-400"
+                onClick={onMarkAllSessionsRead}
+                title={t('tooltips.markAllSessionsRead', 'Mark all as read')}
+              >
+                <CheckCheck className="h-3.5 w-3.5" />
+                <span className="absolute -right-1 -top-1 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-sky-500 px-0.5 text-[8px] font-semibold leading-none text-white shadow-sm ring-1 ring-background">
+                  {unreadBadgeText}
+                </span>
+              </Button>
+            )}
             <Button
               variant="ghost"
               size="sm"
@@ -189,6 +210,29 @@ export default function SidebarHeader({
                   </span>
                 </button>
               </Tooltip>
+              <Tooltip content={t('search.unreadTooltip', 'Unread sessions')} position="top">
+                <button
+                  onClick={() => onSearchModeChange('unread')}
+                  aria-pressed={searchMode === 'unread'}
+                  aria-label={t('search.unreadTooltip', 'Unread sessions')}
+                  title={t('search.unreadTooltip', 'Unread sessions')}
+                  className={cn(
+                    "flex items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-normal transition-all",
+                    searchMode === 'unread'
+                      ? "bg-background shadow-sm text-foreground ring-1 ring-sky-500/15"
+                      : "text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  <span className="relative flex h-3 w-3 items-center justify-center">
+                    <BellDot className={cn("h-3 w-3", unreadSessionsCount > 0 && "text-sky-500")} />
+                    {unreadSessionsCount > 0 && (
+                      <span className="absolute -right-2.5 -top-2 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-sky-500 px-0.5 text-[8px] font-semibold leading-none text-white shadow-sm ring-1 ring-background">
+                        {unreadBadgeText}
+                      </span>
+                    )}
+                  </span>
+                </button>
+              </Tooltip>
               <Tooltip content={t('search.archiveOnlyTooltip', 'Archive only')} position="top">
                 <button
                   onClick={() => onSearchModeChange('archived')}
@@ -260,6 +304,18 @@ export default function SidebarHeader({
           )}
 
           <div className="flex flex-shrink-0 gap-1.5">
+            {unreadSessionsCount > 0 && (
+              <button
+                className="relative flex h-8 w-8 items-center justify-center rounded-lg bg-sky-500/10 text-sky-600 transition-all active:scale-95 dark:text-sky-400"
+                onClick={onMarkAllSessionsRead}
+                title={t('tooltips.markAllSessionsRead', 'Mark all as read')}
+              >
+                <CheckCheck className="h-4 w-4" />
+                <span className="absolute -right-1 -top-1 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-sky-500 px-0.5 text-[8px] font-semibold leading-none text-white shadow-sm ring-1 ring-background">
+                  {unreadBadgeText}
+                </span>
+              </button>
+            )}
             <button
               className="flex h-8 w-8 items-center justify-center rounded-lg bg-muted/50 transition-all active:scale-95"
               onClick={onRefresh}
@@ -328,6 +384,30 @@ export default function SidebarHeader({
                     )}
                   </span>
                   <span className="sr-only">{t('search.modeRunning', 'Running')}</span>
+                </button>
+              </Tooltip>
+              <Tooltip content={t('search.unreadTooltip', 'Unread sessions')} position="top">
+                <button
+                  onClick={() => onSearchModeChange('unread')}
+                  aria-pressed={searchMode === 'unread'}
+                  aria-label={t('search.unreadTooltip', 'Unread sessions')}
+                  title={t('search.unreadTooltip', 'Unread sessions')}
+                  className={cn(
+                    "flex items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-normal transition-all",
+                    searchMode === 'unread'
+                      ? "bg-background shadow-sm text-foreground ring-1 ring-sky-500/15"
+                      : "text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  <span className="relative flex h-3 w-3 items-center justify-center">
+                    <BellDot className={cn("h-3 w-3", unreadSessionsCount > 0 && "text-sky-500")} />
+                    {unreadSessionsCount > 0 && (
+                      <span className="absolute -right-2.5 -top-2 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-sky-500 px-0.5 text-[8px] font-semibold leading-none text-white shadow-sm ring-1 ring-background">
+                        {unreadBadgeText}
+                      </span>
+                    )}
+                  </span>
+                  <span className="sr-only">{t('search.modeUnread', 'Unread')}</span>
                 </button>
               </Tooltip>
               <Tooltip content={t('search.archiveOnlyTooltip', 'Archive only')} position="top">

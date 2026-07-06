@@ -1,5 +1,5 @@
 import { type ReactNode } from 'react';
-import { Activity, Archive, Folder, MessageSquare, RotateCcw, Search, Trash2 } from 'lucide-react';
+import { Activity, Archive, BellDot, Folder, MessageSquare, RotateCcw, Search, Trash2 } from 'lucide-react';
 import type { TFunction } from 'i18next';
 
 import { ScrollArea } from '../../../../shared/view/ui';
@@ -117,6 +117,8 @@ type SidebarContentProps = {
   isLoading: boolean;
   projects: Project[];
   runningSessionsCount: number;
+  unreadSessionsCount: number;
+  onMarkAllSessionsRead: () => void;
   archivedProjects: ArchivedProjectListItem[];
   archivedSessions: ArchivedSessionListItem[];
   archivedSessionsCount: number;
@@ -157,6 +159,8 @@ export default function SidebarContent({
   isLoading,
   projects,
   runningSessionsCount,
+  unreadSessionsCount,
+  onMarkAllSessionsRead,
   archivedProjects,
   archivedSessions,
   archivedSessionsCount,
@@ -203,6 +207,8 @@ export default function SidebarContent({
         isLoading={isLoading}
         projectsCount={projects.length}
         runningSessionsCount={runningSessionsCount}
+        unreadSessionsCount={unreadSessionsCount}
+        onMarkAllSessionsRead={onMarkAllSessionsRead}
         archivedSessionsCount={archivedSessionsCount}
         isArchivedSessionsLoading={isArchivedSessionsLoading}
         searchFilter={searchFilter}
@@ -342,6 +348,39 @@ export default function SidebarContent({
                 </div>
                 <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[11px] font-normal text-emerald-700 dark:text-emerald-300">
                   {runningSessionsCount}
+                </span>
+              </div>
+              <SidebarProjectList {...projectListProps} />
+            </div>
+          )
+        ) : searchMode === 'unread' ? (
+          projectListProps.filteredProjects.length === 0 ? (
+            <div className="px-4 py-12 text-center md:py-8">
+              <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-lg border border-border/70 bg-muted/50 md:mb-3">
+                <BellDot className="h-6 w-6 text-muted-foreground" />
+              </div>
+              <h3 className="mb-2 text-base font-medium text-foreground md:mb-1">
+                {t('unread.emptyTitle', 'No unread sessions')}
+              </h3>
+              <p className="text-sm text-muted-foreground">
+                {unreadSessionsCount > 0
+                  ? t('unread.noMatchingSessions', 'No unread sessions match this search.')
+                  : t('unread.emptyDescription', 'Sessions that just finished a run will appear here until you mark them as read.')}
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <div className="mx-2 flex items-center justify-between rounded-lg border border-border/60 bg-card/50 px-3 py-2 shadow-sm">
+                <div className="flex min-w-0 items-center gap-2">
+                  <span className="flex h-6 w-6 items-center justify-center rounded-md bg-sky-500/10 text-sky-600 dark:text-sky-400">
+                    <BellDot className="h-3.5 w-3.5" />
+                  </span>
+                  <span className="truncate text-xs font-normal text-foreground">
+                    {t('unread.title', 'Unread')}
+                  </span>
+                </div>
+                <span className="rounded-full bg-sky-500/10 px-2 py-0.5 text-[11px] font-normal text-sky-700 dark:text-sky-300">
+                  {unreadSessionsCount}
                 </span>
               </div>
               <SidebarProjectList {...projectListProps} />

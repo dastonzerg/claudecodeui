@@ -72,6 +72,8 @@ function Sidebar({
     searchProgress,
     clearConversationResults,
     runningSessionsCount,
+    unreadSessionsCount,
+    markAllSessionsRead,
     deletingProjects,
     deleteConfirmation,
     sessionDeleteConfirmation,
@@ -163,7 +165,7 @@ function Sidebar({
     getProjectSessions,
     loadingMoreProjects,
     activeSessions,
-    forceExpanded: searchMode === 'running',
+    forceExpanded: searchMode === 'running' || searchMode === 'unread',
     isProjectStarred,
     onEditingNameChange: setEditingName,
     onToggleProject: toggleProject,
@@ -236,6 +238,8 @@ function Sidebar({
             isLoading={isLoading}
             projects={projects}
             runningSessionsCount={runningSessionsCount}
+            unreadSessionsCount={unreadSessionsCount}
+            onMarkAllSessionsRead={markAllSessionsRead}
             archivedProjects={archivedProjects}
             archivedSessions={archivedSessions}
             archivedSessionsCount={archivedSessionsCount}

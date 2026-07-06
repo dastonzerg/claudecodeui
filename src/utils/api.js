@@ -140,6 +140,18 @@ export const api = {
     authenticatedFetch(`/api/projects/${encodeURIComponent(projectId)}/toggle-star`, {
       method: 'POST',
     }),
+  // "Unread" sidebar tab state, persisted server-side so it's shared across
+  // every browser/device hitting this server (not localStorage).
+  getUnreadSessionIds: () => authenticatedFetch('/api/projects/unread-sessions'),
+  markSessionsUnread: (sessionIds) =>
+    authenticatedFetch('/api/projects/unread-sessions', {
+      method: 'POST',
+      body: JSON.stringify({ sessionIds }),
+    }),
+  clearUnreadSessions: () =>
+    authenticatedFetch('/api/projects/unread-sessions', {
+      method: 'DELETE',
+    }),
   readFile: (projectId, filePath) =>
     authenticatedFetch(`/api/projects/${projectId}/file?filePath=${encodeURIComponent(filePath)}`),
   readFileBlob: (projectId, filePath) =>

@@ -152,13 +152,60 @@ export function useSidebarController({
   const activeSessionIds = useMemo(() => new Set(activeSessions.keys()), [activeSessions]);
   const runningSessionsCount = activeSessionIds.size;
 
+  // Sessions the app has observed finishing a run (was processing, now isn't),
+  // persisted server-side (not localStorage) so the "Unread" tab is the same
+  // across every browser/device hitting this server. Unlike the green dot on
+  // each row, this doesn't clear itself after 10 minutes - only the explicit
+  // "mark all as read" action clears it.
+  const [unreadSessionIds, setUnreadSessionIds] = useState<Set<string>>(new Set());
+  const previousActiveSessionIdsRef = useRef<Set<string>>(new Set());
+
+  const refreshUnreadSessionIds = useCallback(async () => {
+    try {
+      const response = await api.getUnreadSessionIds();
+      const data = await response.json();
+      setUnreadSessionIds(new Set(Array.isArray(data.sessionIds) ? data.sessionIds : []));
+    } catch {
+      // Leave the current set as-is if the fetch fails.
+    }
+  }, []);
+
+  useEffect(() => {
+    void refreshUnreadSessionIds();
+  }, [refreshUnreadSessionIds]);
+
+  useEffect(() => {
+    const previouslyActive = previousActiveSessionIdsRef.current;
+    previousActiveSessionIdsRef.current = activeSessionIds;
+
+    const justFinished = [...previouslyActive].filter((sessionId) => !activeSessionIds.has(sessionId));
+    if (justFinished.length === 0) {
+      return;
+    }
+
+    setUnreadSessionIds((previous) => {
+      const next = new Set(previous);
+      justFinished.forEach((sessionId) => next.add(sessionId));
+      return next;
+    });
+    void api.markSessionsUnread(justFinished);
+  }, [activeSessionIds]);
+
+  const markAllSessionsRead = useCallback(() => {
+    setUnreadSessionIds(new Set());
+    void api.clearUnreadSessions();
+  }, []);
+
   useEffect(() => {
     const timer = setInterval(() => {
       setCurrentTime(new Date());
+      // Picks up unread sessions from other devices/browsers hitting this
+      // same server, since this tab has no way to know about those otherwise.
+      void refreshUnreadSessionIds();
     }, 60000);
 
     return () => clearInterval(timer);
-  }, []);
+  }, [refreshUnreadSessionIds]);
 
   useEffect(() => {
     setInitialSessionsLoaded(new Set());
@@ -613,10 +660,46 @@ export function useSidebarController({
     }, []);
   }, [activeSessionIds, sortedProjects]);
 
-  const filteredProjects = useMemo(
-    () => filterProjects(searchMode === 'running' ? runningProjects : sortedProjects, debouncedSearchQuery),
-    [debouncedSearchQuery, runningProjects, searchMode, sortedProjects],
+  // Sessions marked unread (finished a run, not yet dismissed) and no longer
+  // processing - a fresh run on a previously-unread session hides it here
+  // until it finishes again.
+  const unreadProjects = useMemo(() => {
+    return sortedProjects.reduce<Project[]>((acc, project) => {
+      const sessions = getAllSessions(project).filter(
+        (session) => unreadSessionIds.has(String(session.id)) && !activeSessionIds.has(String(session.id)),
+      );
+      const unreadCount = sessions.length;
+
+      if (unreadCount === 0) {
+        return acc;
+      }
+
+      acc.push({
+        ...project,
+        sessions,
+        sessionMeta: {
+          ...project.sessionMeta,
+          total: unreadCount,
+          hasMore: false,
+        },
+      });
+      return acc;
+    }, []);
+  }, [activeSessionIds, sortedProjects, unreadSessionIds]);
+
+  const unreadSessionsCount = useMemo(
+    () => unreadProjects.reduce((total, project) => total + (project.sessions?.length ?? 0), 0),
+    [unreadProjects],
   );
+
+  const filteredProjects = useMemo(() => {
+    const baseProjects = searchMode === 'running'
+      ? runningProjects
+      : searchMode === 'unread'
+        ? unreadProjects
+        : sortedProjects;
+    return filterProjects(baseProjects, debouncedSearchQuery);
+  }, [debouncedSearchQuery, runningProjects, searchMode, sortedProjects, unreadProjects]);
 
   const filteredArchivedSessions = useMemo(() => {
     const normalizedSearch = debouncedSearchQuery.trim().toLowerCase();
@@ -946,6 +1029,8 @@ export function useSidebarController({
     showVersionModal,
     filteredProjects,
     runningSessionsCount,
+    unreadSessionsCount,
+    markAllSessionsRead,
     archivedProjects: filteredArchivedProjects,
     archivedSessions: filteredArchivedSessions,
     archivedSessionsCount: archivedProjects.length + archivedSessions.length,

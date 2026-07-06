@@ -7,6 +7,7 @@ import { AppError, asyncHandler, createApiSuccessResponse } from '@/shared/utils
 import { getArchivedProjectsWithSessions, getProjectSessionsPage, getProjectsWithSessions } from '@/modules/projects/services/projects-with-sessions-fetch.service.js';
 import { deleteOrArchiveProject, restoreArchivedProject } from '@/modules/projects/services/project-delete.service.js';
 import { applyLegacyStarredProjectIds, toggleProjectStar } from '@/modules/projects/services/project-star.service.js';
+import { addUnreadSessionIds, clearUnreadSessionIds, getUnreadSessionIds } from '@/modules/projects/services/unread-sessions.service.js';
 
 const router = express.Router();
 
@@ -150,6 +151,35 @@ router.post(
       : [];
     const { updated } = applyLegacyStarredProjectIds(projectIds);
     res.json({ success: true, updated });
+  }),
+);
+
+/**
+ * "Unread" sidebar tab state: sessions that finished a run and haven't been
+ * dismissed yet. Persisted server-side (not localStorage) so it's the same
+ * across every browser/device hitting this server.
+ */
+router.get(
+  '/unread-sessions',
+  asyncHandler(async (_req, res) => {
+    res.json({ success: true, sessionIds: getUnreadSessionIds() });
+  }),
+);
+
+router.post(
+  '/unread-sessions',
+  asyncHandler(async (req, res) => {
+    const sessionIds = Array.isArray((req.body as { sessionIds?: unknown })?.sessionIds)
+      ? ((req.body as { sessionIds: unknown[] }).sessionIds as unknown[]).map((x) => String(x))
+      : [];
+    res.json({ success: true, sessionIds: addUnreadSessionIds(sessionIds) });
+  }),
+);
+
+router.delete(
+  '/unread-sessions',
+  asyncHandler(async (_req, res) => {
+    res.json({ success: true, sessionIds: clearUnreadSessionIds() });
   }),
 );
 
