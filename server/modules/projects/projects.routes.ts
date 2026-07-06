@@ -7,7 +7,7 @@ import { AppError, asyncHandler, createApiSuccessResponse } from '@/shared/utils
 import { getArchivedProjectsWithSessions, getProjectSessionsPage, getProjectsWithSessions } from '@/modules/projects/services/projects-with-sessions-fetch.service.js';
 import { deleteOrArchiveProject, restoreArchivedProject } from '@/modules/projects/services/project-delete.service.js';
 import { applyLegacyStarredProjectIds, toggleProjectStar } from '@/modules/projects/services/project-star.service.js';
-import { addUnreadSessionIds, clearUnreadSessionIds, getUnreadSessionIds } from '@/modules/projects/services/unread-sessions.service.js';
+import { addUnreadSessionIds, getUnreadSessionIds, removeUnreadSessionId } from '@/modules/projects/services/unread-sessions.service.js';
 
 const router = express.Router();
 
@@ -177,9 +177,9 @@ router.post(
 );
 
 router.delete(
-  '/unread-sessions',
-  asyncHandler(async (_req, res) => {
-    res.json({ success: true, sessionIds: clearUnreadSessionIds() });
+  '/unread-sessions/:sessionId',
+  asyncHandler(async (req, res) => {
+    res.json({ success: true, sessionIds: removeUnreadSessionId(String(req.params.sessionId)) });
   }),
 );
 

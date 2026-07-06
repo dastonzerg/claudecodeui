@@ -73,7 +73,6 @@ function Sidebar({
     clearConversationResults,
     runningSessionsCount,
     unreadSessionsCount,
-    markAllSessionsRead,
     deletingProjects,
     deleteConfirmation,
     sessionDeleteConfirmation,
@@ -239,7 +238,6 @@ function Sidebar({
             projects={projects}
             runningSessionsCount={runningSessionsCount}
             unreadSessionsCount={unreadSessionsCount}
-            onMarkAllSessionsRead={markAllSessionsRead}
             archivedProjects={archivedProjects}
             archivedSessions={archivedSessions}
             archivedSessionsCount={archivedSessionsCount}

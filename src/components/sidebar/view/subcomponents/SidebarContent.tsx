@@ -118,7 +118,6 @@ type SidebarContentProps = {
   projects: Project[];
   runningSessionsCount: number;
   unreadSessionsCount: number;
-  onMarkAllSessionsRead: () => void;
   archivedProjects: ArchivedProjectListItem[];
   archivedSessions: ArchivedSessionListItem[];
   archivedSessionsCount: number;
@@ -160,7 +159,6 @@ export default function SidebarContent({
   projects,
   runningSessionsCount,
   unreadSessionsCount,
-  onMarkAllSessionsRead,
   archivedProjects,
   archivedSessions,
   archivedSessionsCount,
@@ -208,7 +206,6 @@ export default function SidebarContent({
         projectsCount={projects.length}
         runningSessionsCount={runningSessionsCount}
         unreadSessionsCount={unreadSessionsCount}
-        onMarkAllSessionsRead={onMarkAllSessionsRead}
         archivedSessionsCount={archivedSessionsCount}
         isArchivedSessionsLoading={isArchivedSessionsLoading}
         searchFilter={searchFilter}

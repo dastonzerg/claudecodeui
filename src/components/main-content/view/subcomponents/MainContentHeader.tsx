@@ -1,5 +1,10 @@
 import { useCallback, useRef, useState, useEffect } from 'react';
+import { CheckCheck } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+
 import type { MainContentHeaderProps } from '../../types/types';
+import { useSessionUnreadStatus } from '../../hooks/useSessionUnreadStatus';
+
 import MobileMenuButton from './MobileMenuButton';
 import MainContentTabSwitcher from './MainContentTabSwitcher';
 import MainContentTitle from './MainContentTitle';
@@ -15,9 +20,11 @@ export default function MainContentHeader({
   isMobile,
   onMenuClick,
 }: MainContentHeaderProps) {
+  const { t } = useTranslation();
   const scrollRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
+  const { isUnread, markRead } = useSessionUnreadStatus(selectedSession?.id);
 
   const updateScrollState = useCallback(() => {
     const el = scrollRef.current;
@@ -49,6 +56,17 @@ export default function MainContentHeader({
         </div>
 
         <div className="flex min-w-0 flex-shrink items-center gap-2 sm:flex-shrink-0">
+          {activeTab === 'chat' && selectedSession && isUnread && (
+            <button
+              className="flex h-7 items-center gap-1.5 rounded-lg bg-sky-500/10 px-2 text-xs font-normal text-sky-600 transition-all hover:bg-sky-500/20 active:scale-95 dark:text-sky-400"
+              onClick={markRead}
+              title={t('tooltips.markSessionRead', 'Mark as read')}
+            >
+              <CheckCheck className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">{t('chat.markAsRead', 'Mark as read')}</span>
+            </button>
+          )}
+
           {activeTab === 'chat' && selectedSession && (
             <SessionResumeDialog
               selectedProject={selectedProject}

@@ -45,7 +45,8 @@ export function addUnreadSessionIds(sessionIdsToAdd: string[]): string[] {
   return next;
 }
 
-export function clearUnreadSessionIds(): string[] {
-  writeUnreadSessionIds([]);
-  return [];
+export function removeUnreadSessionId(sessionId: string): string[] {
+  const remaining = readUnreadSessionIds().filter((id) => id !== sessionId);
+  writeUnreadSessionIds(remaining);
+  return remaining;
 }

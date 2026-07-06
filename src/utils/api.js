@@ -148,8 +148,8 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ sessionIds }),
     }),
-  clearUnreadSessions: () =>
-    authenticatedFetch('/api/projects/unread-sessions', {
+  markSessionRead: (sessionId) =>
+    authenticatedFetch(`/api/projects/unread-sessions/${encodeURIComponent(sessionId)}`, {
       method: 'DELETE',
     }),
   readFile: (projectId, filePath) =>

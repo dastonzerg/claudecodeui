@@ -191,11 +191,6 @@ export function useSidebarController({
     void api.markSessionsUnread(justFinished);
   }, [activeSessionIds]);
 
-  const markAllSessionsRead = useCallback(() => {
-    setUnreadSessionIds(new Set());
-    void api.clearUnreadSessions();
-  }, []);
-
   useEffect(() => {
     const timer = setInterval(() => {
       setCurrentTime(new Date());
@@ -1030,7 +1025,6 @@ export function useSidebarController({
     filteredProjects,
     runningSessionsCount,
     unreadSessionsCount,
-    markAllSessionsRead,
     archivedProjects: filteredArchivedProjects,
     archivedSessions: filteredArchivedSessions,
     archivedSessionsCount: archivedProjects.length + archivedSessions.length,
