@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 
 import { api } from '../../../utils/api';
+import { emitSessionMarkedRead } from '../../../utils/unreadSessionSync';
 
 const POLL_INTERVAL_MS = 15000;
 
@@ -49,6 +50,7 @@ export function useSessionUnreadStatus(sessionId: string | undefined) {
     }
 
     setIsUnread(false);
+    emitSessionMarkedRead(sessionId);
     void api.markSessionRead(sessionId);
   }, [sessionId]);
 

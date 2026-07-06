@@ -5,6 +5,7 @@ import { api } from '../../../utils/api';
 import { usePaletteOps } from '../../../contexts/PaletteOpsContext';
 import type { Project, ProjectSession, LLMProvider } from '../../../types/app';
 import type { SessionActivityMap } from '../../../hooks/useSessionProtection';
+import { onSessionMarkedRead } from '../../../utils/unreadSessionSync';
 import type {
   ArchivedProjectListItem,
   ArchivedSessionListItem,
@@ -173,6 +174,20 @@ export function useSidebarController({
   useEffect(() => {
     void refreshUnreadSessionIds();
   }, [refreshUnreadSessionIds]);
+
+  useEffect(() => {
+    return onSessionMarkedRead((sessionId) => {
+      setUnreadSessionIds((previous) => {
+        if (!previous.has(sessionId)) {
+          return previous;
+        }
+
+        const next = new Set(previous);
+        next.delete(sessionId);
+        return next;
+      });
+    });
+  }, []);
 
   useEffect(() => {
     const previouslyActive = previousActiveSessionIdsRef.current;
