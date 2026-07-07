@@ -20,23 +20,51 @@ export function normalizeInlineCodeFences(text: string) {
 export function unescapeWithMathProtection(text: string) {
   if (!text || typeof text !== 'string') return text;
 
+  const codeBlocks: string[] = [];
+  const inlineCodeSpans: string[] = [];
   const mathBlocks: string[] = [];
-  const placeholderPrefix = '__MATH_BLOCK_';
+  const codeBlockPrefix = '__CODE_BLOCK_';
+  const inlineCodePrefix = '__INLINE_CODE_';
+  const mathBlockPrefix = '__MATH_BLOCK_';
   const placeholderSuffix = '__';
 
-  let processedText = text.replace(/\$\$([\s\S]*?)\$\$|\$([^\$\n]+?)\$/g, (match) => {
+  // Fenced/inline code often contains literal \n, \t, \r sequences (Windows
+  // paths, escape-sequence examples, regex literals) that are the actual
+  // content, not double-escaped prose - protect them first, same technique
+  // already used below for LaTeX math.
+  let processedText = text.replace(/```[\s\S]*?```/g, (match) => {
+    const index = codeBlocks.length;
+    codeBlocks.push(match);
+    return `${codeBlockPrefix}${index}${placeholderSuffix}`;
+  });
+
+  processedText = processedText.replace(/`[^`\n]+?`/g, (match) => {
+    const index = inlineCodeSpans.length;
+    inlineCodeSpans.push(match);
+    return `${inlineCodePrefix}${index}${placeholderSuffix}`;
+  });
+
+  processedText = processedText.replace(/\$\$([\s\S]*?)\$\$|\$([^\$\n]+?)\$/g, (match) => {
     const index = mathBlocks.length;
     mathBlocks.push(match);
-    return `${placeholderPrefix}${index}${placeholderSuffix}`;
+    return `${mathBlockPrefix}${index}${placeholderSuffix}`;
   });
 
   processedText = processedText.replace(/\\n/g, '\n').replace(/\\t/g, '\t').replace(/\\r/g, '\r');
 
   processedText = processedText.replace(
-    new RegExp(`${placeholderPrefix}(\\d+)${placeholderSuffix}`, 'g'),
-    (match, index) => {
-      return mathBlocks[parseInt(index, 10)];
-    },
+    new RegExp(`${mathBlockPrefix}(\\d+)${placeholderSuffix}`, 'g'),
+    (match, index) => mathBlocks[parseInt(index, 10)],
+  );
+
+  processedText = processedText.replace(
+    new RegExp(`${inlineCodePrefix}(\\d+)${placeholderSuffix}`, 'g'),
+    (match, index) => inlineCodeSpans[parseInt(index, 10)],
+  );
+
+  processedText = processedText.replace(
+    new RegExp(`${codeBlockPrefix}(\\d+)${placeholderSuffix}`, 'g'),
+    (match, index) => codeBlocks[parseInt(index, 10)],
   );
 
   return processedText;
