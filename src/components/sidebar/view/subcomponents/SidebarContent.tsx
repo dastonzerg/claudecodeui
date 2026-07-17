@@ -1,4 +1,4 @@
-import { type ReactNode } from 'react';
+import { type ReactNode, useCallback, useRef, useState } from 'react';
 import { Activity, Archive, BellDot, Folder, MessageSquare, RotateCcw, Search, Trash2 } from 'lucide-react';
 import type { TFunction } from 'i18next';
 
@@ -13,6 +13,20 @@ import { getAllSessions } from '../../utils/utils';
 import SidebarFooter from './SidebarFooter';
 import SidebarHeader from './SidebarHeader';
 import SidebarProjectList, { type SidebarProjectListProps } from './SidebarProjectList';
+
+const SIDEBAR_WIDTH_STORAGE_KEY = 'sidebarWidth';
+const MIN_SIDEBAR_WIDTH = 240;
+const MAX_SIDEBAR_WIDTH = 560;
+const DEFAULT_SIDEBAR_WIDTH = 288;
+
+function readStoredSidebarWidth(): number {
+  if (typeof window === 'undefined') return DEFAULT_SIDEBAR_WIDTH;
+  const stored = Number(localStorage.getItem(SIDEBAR_WIDTH_STORAGE_KEY));
+  if (!Number.isFinite(stored) || stored < MIN_SIDEBAR_WIDTH || stored > MAX_SIDEBAR_WIDTH) {
+    return DEFAULT_SIDEBAR_WIDTH;
+  }
+  return stored;
+}
 
 function HighlightedSnippet({ snippet, highlights }: { snippet: string; highlights: { start: number; end: number }[] }) {
   const parts: ReactNode[] = [];
@@ -194,11 +208,48 @@ export default function SidebarContent({
   const hasPartialResults = conversationResults && conversationResults.results.length > 0;
   const groupedArchivedSessions = groupArchivedSessionsByProject(archivedSessions);
 
+  const [sidebarWidth, setSidebarWidth] = useState(readStoredSidebarWidth);
+  const resizeStartRef = useRef({ startX: 0, startWidth: sidebarWidth });
+
+  const handleResizeStart = useCallback((event: React.MouseEvent) => {
+    event.preventDefault();
+    resizeStartRef.current = { startX: event.clientX, startWidth: sidebarWidth };
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+
+    const handleMouseMove = (moveEvent: MouseEvent) => {
+      const { startX, startWidth } = resizeStartRef.current;
+      const nextWidth = Math.min(
+        MAX_SIDEBAR_WIDTH,
+        Math.max(MIN_SIDEBAR_WIDTH, startWidth + (moveEvent.clientX - startX)),
+      );
+      setSidebarWidth(nextWidth);
+    };
+
+    const handleMouseUp = () => {
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+      setSidebarWidth((current) => {
+        localStorage.setItem(SIDEBAR_WIDTH_STORAGE_KEY, String(current));
+        return current;
+      });
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+  }, [sidebarWidth]);
+
   return (
     <div
-      className="flex h-full flex-col bg-background/80 backdrop-blur-sm md:w-72 md:select-none"
-      style={{}}
+      className="relative flex h-full flex-col bg-background/80 backdrop-blur-sm md:w-[var(--sidebar-width)] md:select-none"
+      style={{ '--sidebar-width': `${sidebarWidth}px` } as React.CSSProperties}
     >
+      <div
+        onMouseDown={handleResizeStart}
+        className="absolute right-0 top-0 z-10 hidden h-full w-1 cursor-col-resize hover:bg-primary/40 active:bg-primary/60 md:block"
+      />
       <SidebarHeader
         isPWA={isPWA}
         isMobile={isMobile}
