@@ -192,7 +192,10 @@ async function spawnOpenCode(command, options = {}, ws) {
       }
     };
 
-    void providerModelsService.resolveResumeModel('opencode', sessionId, model).then((resolvedModel) => {
+    // The model override chosen via /models is stored under the app session id,
+    // which stays stable even when the provider rotates its own session id.
+    const modelLookupSessionId = options.appSessionId || sessionId;
+    void providerModelsService.resolveResumeModel('opencode', modelLookupSessionId, model).then((resolvedModel) => {
       const args = ['run', '--format', 'json'];
       // OpenCode's `run` command owns workspace selection through `--dir`.
       // Relying on the child-process cwd alone is not enough on Linux, where

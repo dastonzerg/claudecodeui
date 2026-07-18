@@ -231,9 +231,12 @@ export async function queryCodex(command, options = {}, ws) {
     permissionMode = 'default'
   } = options;
 
+  // The model override chosen via /models is stored under the app session id,
+  // which stays stable even when the provider rotates its own session id.
+  const modelLookupSessionId = options.appSessionId || sessionId;
   const resolvedModel = await providerModelsService.resolveResumeModel(
     'codex',
-    sessionId,
+    modelLookupSessionId,
     model,
   );
 

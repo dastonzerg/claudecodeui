@@ -162,6 +162,7 @@ async function handleChatSend(
   const runtimeOptions: AnyRecord = {
     ...clientOptions,
     sessionId: session.provider_session_id ?? undefined,
+    appSessionId: sessionId,
     resume: Boolean(session.provider_session_id),
     cwd: clientOptions.cwd ?? session.project_path ?? undefined,
     projectPath: session.project_path ?? clientOptions.projectPath,

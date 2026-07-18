@@ -121,9 +121,12 @@ async function buildGeminiProcessEnv() {
 
 async function spawnGemini(command, options = {}, ws) {
     const { sessionId, projectPath, cwd, toolsSettings, permissionMode, images, sessionSummary } = options;
+    // The model override chosen via /models is stored under the app session id,
+    // which stays stable even when the provider rotates its own session id.
+    const modelLookupSessionId = options.appSessionId || sessionId;
     const resolvedModel = await providerModelsService.resolveResumeModel(
         'gemini',
-        sessionId,
+        modelLookupSessionId,
         options.model
     );
     let capturedSessionId = sessionId; // Track session ID throughout the process

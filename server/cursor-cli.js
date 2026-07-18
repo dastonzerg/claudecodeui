@@ -29,7 +29,10 @@ function isWorkspaceTrustPrompt(text = '') {
 async function spawnCursor(command, options = {}, ws) {
   return new Promise(async (resolve, reject) => {
     const { sessionId, projectPath, cwd, resume, toolsSettings, skipPermissions, model, sessionSummary } = options;
-    const resolvedModel = await providerModelsService.resolveResumeModel('cursor', sessionId, model);
+    // The model override chosen via /models is stored under the app session id,
+    // which stays stable even when the provider rotates its own session id.
+    const modelLookupSessionId = options.appSessionId || sessionId;
+    const resolvedModel = await providerModelsService.resolveResumeModel('cursor', modelLookupSessionId, model);
     let capturedSessionId = sessionId; // Track session ID throughout the process
     let sessionCreatedSent = false; // Track if we've already sent session-created event
     let hasRetriedWithTrust = false;
