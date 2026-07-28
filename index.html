@@ -33,6 +33,38 @@
     
     <!-- Prevent zoom on iOS -->
     <meta name="format-detection" content="telephone=no" />
+
+    <!-- Apply the theme before first paint. ThemeContext also does this, but
+         from an effect that only runs once the app bundle has executed; until
+         then the page paints in light theme. On desktop that window is a few
+         ms, but on mobile it is long enough to see as a flash. Must stay in
+         sync with the resolution order in src/contexts/ThemeContext.jsx. -->
+    <script>
+      (function () {
+        try {
+          var saved = localStorage.getItem('theme');
+          var isDark = saved
+            ? saved === 'dark'
+            : !!(window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+
+          if (isDark) {
+            document.documentElement.classList.add('dark');
+          }
+
+          var themeColor = document.querySelector('meta[name="theme-color"]');
+          if (themeColor) {
+            themeColor.setAttribute('content', isDark ? '#141414' : '#f6f4ef');
+          }
+
+          var statusBar = document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]');
+          if (statusBar) {
+            statusBar.setAttribute('content', isDark ? 'black-translucent' : 'default');
+          }
+        } catch (e) {
+          /* Private-mode localStorage can throw; the app's effect still runs. */
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>
