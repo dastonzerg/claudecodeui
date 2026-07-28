@@ -1367,10 +1367,19 @@ app.get('/api/projects/:projectId/sessions/:sessionId/token-usage', authenticate
                     // Codex stores token info in event_msg with type: "token_count"
                     if (entry.type === 'event_msg' && entry.payload?.type === 'token_count' && entry.payload?.info) {
                         const tokenInfo = entry.payload.info;
-                        if (tokenInfo.total_token_usage) {
-                            inputTokens = tokenInfo.total_token_usage.input_tokens || 0;
-                            outputTokens = tokenInfo.total_token_usage.output_tokens || 0;
-                            totalTokens = tokenInfo.total_token_usage.total_tokens || inputTokens + outputTokens;
+
+                        // `last_token_usage` is the most recent request, i.e. what
+                        // actually occupies the context window. `total_token_usage`
+                        // accumulates across every turn of the session and so runs
+                        // far past the window, pinning "% context left" at 0. Fall
+                        // back to it only for transcripts that lack the per-request
+                        // figure. Note `cached_input_tokens` is a subset of
+                        // `input_tokens`, so the two must not be summed.
+                        const codexUsage = tokenInfo.last_token_usage || tokenInfo.total_token_usage;
+                        if (codexUsage) {
+                            inputTokens = codexUsage.input_tokens || 0;
+                            outputTokens = codexUsage.output_tokens || 0;
+                            totalTokens = codexUsage.total_tokens || inputTokens + outputTokens;
                         }
                         if (tokenInfo.model_context_window) {
                             contextWindow = tokenInfo.model_context_window;

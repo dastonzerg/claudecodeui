@@ -30,7 +30,17 @@ function readUsageNumber(value) {
 
 function extractCodexTokenBudget(event) {
   const info = event?.info || event?.payload?.info || event?.usage?.info;
-  const usage = info?.total_token_usage || event?.usage?.total_token_usage || event?.usage;
+
+  // `last_token_usage` covers the most recent request, which is what actually
+  // occupies the context window. `total_token_usage` accumulates across every
+  // turn — each one re-sending the conversation — so it runs far past the
+  // window and pins "% context left" at 0. Fall back to it only for older
+  // transcripts that predate `last_token_usage`.
+  const usage = info?.last_token_usage
+    || event?.usage?.last_token_usage
+    || info?.total_token_usage
+    || event?.usage?.total_token_usage
+    || event?.usage;
   if (!usage || typeof usage !== 'object') {
     return null;
   }
