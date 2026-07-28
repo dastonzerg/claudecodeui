@@ -407,12 +407,20 @@ export function useChatSessionState({
   // This version re-scrolls every animation frame while scrollHeight is
   // still growing, capped at ~1s (60 frames) or 3 consecutive stable
   // frames. Cancels cleanly on session change via the pending flag.
-  useEffect(() => {
+  // useLayoutEffect (not useEffect) so the first pin runs synchronously after
+  // the message list is committed but BEFORE the browser paints. A plain effect
+  // fires post-paint, so the first painted frame showed the messages scrolled
+  // to the top and the rAF loop below then jumped to the bottom — the visible
+  // blink/shift when opening a chat with more content than before.
+  useLayoutEffect(() => {
     if (!pendingInitialScrollRef.current || !scrollContainerRef.current || isLoadingSessionMessages) return;
     if (chatMessages.length === 0) { pendingInitialScrollRef.current = false; return; }
     if (searchScrollActiveRef.current) { pendingInitialScrollRef.current = false; return; }
 
     const container = scrollContainerRef.current;
+    // Pin to the bottom pre-paint so the chat never flashes at the top; the rAF
+    // loop below keeps it anchored as lazy content (code/markdown/images) reflows.
+    container.scrollTop = container.scrollHeight;
     let frame = 0;
     let lastHeight = 0;
     let stableCount = 0;

@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { Check, Edit2, Loader2, Trash2, X } from 'lucide-react';
+import { Check, Edit2, Trash2, X } from 'lucide-react';
 import type { TFunction } from 'i18next';
 
 import { Badge, Tooltip, buttonVariants } from '../../../../shared/view/ui';
@@ -132,7 +132,7 @@ export default function SidebarSessionItem({
             <div
               role="status"
               aria-label={t('tooltips.activeSessionIndicator')}
-              className="h-2 w-2 animate-pulse rounded-full bg-green-500"
+              className="h-2 w-2 animate-pulse-brief rounded-full bg-green-500"
             />
           </Tooltip>
         </div>
@@ -144,10 +144,11 @@ export default function SidebarSessionItem({
           className={cn(
             'p-2 mx-3 my-0.5 rounded-md bg-card border transition-all duration-150 relative',
             !isEditing && 'active:scale-[0.98]',
-            isSelected ? 'bg-primary/5 border-primary/20' : '',
-            !isSelected && isProcessing
+            isSelected
+              ? 'border-primary bg-primary/15 ring-1 ring-primary/40 dark:bg-primary/25'
+              : isProcessing
               ? 'border-border/60 bg-muted/20'
-              : !isSelected && sessionView.isActive
+              : sessionView.isActive
               ? 'border-green-500/30 bg-green-50/5 dark:bg-green-900/5'
               : 'border-border/30',
           )}
@@ -199,7 +200,7 @@ export default function SidebarSessionItem({
                       <span className="ml-auto flex-shrink-0">
                         <Tooltip content={t('tooltips.processingSessionIndicator', 'Processing session')} position="top">
                       <span className="flex h-5 w-5 items-center justify-center rounded-md text-muted-foreground">
-                        <Loader2 className="h-3 w-3 animate-spin" />
+                        <span className="h-1.5 w-1.5 animate-pulse-brief rounded-full bg-primary" />
                       </span>
                     </Tooltip>
                       </span>
@@ -279,12 +280,13 @@ export default function SidebarSessionItem({
           className={cn(
             buttonVariants({ variant: 'ghost' }),
             'h-auto w-full justify-start rounded-md border bg-card p-2 text-left font-normal transition-all duration-150',
-            isSelected ? 'border-primary/20 bg-primary/5' : 'border-border/30',
-            !isSelected && isProcessing
-              ? 'border-border/60 bg-muted/20 hover:bg-muted/25'
-              : !isSelected && sessionView.isActive
-                ? 'border-green-500/30 bg-green-50/5 hover:bg-green-50/10 dark:bg-green-900/5 dark:hover:bg-green-900/10'
-                : 'hover:bg-accent/50',
+            isSelected
+              ? 'border-primary bg-primary/15 ring-1 ring-primary/40 hover:bg-primary/20 dark:bg-primary/25'
+              : isProcessing
+                ? 'border-border/60 bg-muted/20 hover:bg-muted/25'
+                : sessionView.isActive
+                  ? 'border-green-500/30 bg-green-50/5 hover:bg-green-50/10 dark:bg-green-900/5 dark:hover:bg-green-900/10'
+                  : 'border-border/30 hover:bg-accent/50',
           )}
           // Left-click keeps in-app navigation; Ctrl/Cmd/middle-click and the
           // native right-click menu use the href to open a new tab/window.
@@ -315,7 +317,7 @@ export default function SidebarSessionItem({
                   >
                     <Tooltip content={t('tooltips.processingSessionIndicator', 'Processing session')} position="top">
                       <span className="flex h-5 w-5 items-center justify-center rounded-md text-muted-foreground">
-                        <Loader2 className="h-3 w-3 animate-spin" />
+                        <span className="h-1.5 w-1.5 animate-pulse-brief rounded-full bg-primary" />
                       </span>
                     </Tooltip>
                   </span>

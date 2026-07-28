@@ -160,7 +160,16 @@ export const filterProjects = (projects: Project[], searchFilter: string): Proje
     // `project.path`/`fullPath` is the most useful search target now that the
     // folder-derived name is gone; fall back to displayName above.
     const searchPath = (project.path || project.fullPath || '').toLowerCase();
-    return displayName.includes(normalizedSearch) || searchPath.includes(normalizedSearch);
+    if (displayName.includes(normalizedSearch) || searchPath.includes(normalizedSearch)) {
+      return true;
+    }
+    // Also match conversation titles. These are already loaded in memory, so
+    // this stays an instant client-side filter — it does NOT read message
+    // contents (that heavier scan lives in the Conversations tab search).
+    return (project.sessions ?? []).some((session) => {
+      const title = (session.summary || session.name || session.title || '').toLowerCase();
+      return title.includes(normalizedSearch);
+    });
   });
 };
 

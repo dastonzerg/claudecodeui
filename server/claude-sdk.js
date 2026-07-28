@@ -20,6 +20,7 @@ import os from 'os';
 import { CLAUDE_FALLBACK_MODELS } from './modules/providers/list/claude/claude-models.provider.js';
 import { providerModelsService } from './modules/providers/services/provider-models.service.js';
 import { resolveClaudeCodeExecutablePath } from './shared/claude-cli-path.js';
+import { getClaudeContextWindow } from './shared/claude-context-window.js';
 import {
   createNotificationEvent,
   notifyRunFailed,
@@ -294,17 +295,60 @@ function readNumber(value) {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+// The SDK only reports the real per-model context window on `modelUsage`
+// (present on result messages), not on the per-step `message.usage` payload
+// used for live updates during a turn. Prefer that real value when present.
+function extractContextWindowFromModelUsage(modelUsage) {
+  if (!modelUsage || typeof modelUsage !== 'object') {
+    return null;
+  }
+
+  for (const modelData of Object.values(modelUsage)) {
+    const contextWindow = readNumber(modelData?.contextWindow);
+    if (contextWindow > 0) {
+      return contextWindow;
+    }
+  }
+
+  return null;
+}
+
 /**
  * Extracts token usage from SDK messages.
  * Prefers per-step `message.usage` (Claude message payload), then falls back
  * to result-level usage/modelUsage for compatibility across SDK versions.
  * @param {Object} sdkMessage - SDK stream message
+ * @param {string} [selectedModel] - Model chosen for this run (`sdkOptions.model`),
+ *   which unlike `message.model` still carries any `[1m]` beta marker
  * @returns {Object|null} Token budget object or null
  */
-function extractTokenBudget(sdkMessage) {
+function extractTokenBudget(sdkMessage, selectedModel) {
   if (!sdkMessage || typeof sdkMessage !== 'object') {
     return null;
   }
+
+  const explicitContextWindow = parseInt(process.env.CONTEXT_WINDOW, 10);
+
+  // Mirrors the resolution the JSONL endpoint in index.js already does. An
+  // assistant's `message.model` is the bare id (`claude-opus-5`) with any
+  // `[1m]` beta stripped, so it reports a 200k window for a 1M-context run;
+  // the model *selection* keeps the marker, so prefer it. `modelUsage` carries
+  // the real window but only rides on result messages, not the per-step ones
+  // used for live updates during a turn.
+  const contextWindow = extractContextWindowFromModelUsage(sdkMessage.modelUsage)
+    || explicitContextWindow
+    || getClaudeContextWindow(selectedModel)
+    || getClaudeContextWindow(sdkMessage.message?.model ?? sdkMessage.model ?? Object.keys(sdkMessage.modelUsage ?? {})[0])
+    || 160000;
+
+  // Usage above the resolved window proves the run is actually on the larger
+  // 1M beta, whatever the model strings implied. Evidence, not inference, so it
+  // overrides them — but never an operator's explicit CONTEXT_WINDOW.
+  const resolveWindow = (totalUsed) => (
+    !Number.isFinite(explicitContextWindow) && totalUsed > contextWindow
+      ? 1000000
+      : contextWindow
+  );
 
   const messageUsage = sdkMessage.message?.usage || sdkMessage.usage;
   if (messageUsage && typeof messageUsage === 'object') {
@@ -315,11 +359,10 @@ function extractTokenBudget(sdkMessage) {
     const inputTokens = directInputTokens + cacheTokens;
     const outputTokens = readNumber(messageUsage.output_tokens ?? messageUsage.outputTokens);
     const totalUsed = inputTokens + outputTokens;
-    const contextWindow = parseInt(process.env.CONTEXT_WINDOW, 10) || 160000;
 
     return {
       used: totalUsed,
-      total: contextWindow,
+      total: resolveWindow(totalUsed),
       inputTokens,
       outputTokens,
       cacheReadTokens,
@@ -347,11 +390,10 @@ function extractTokenBudget(sdkMessage) {
   const inputTokens = readNumber(modelData.cumulativeInputTokens ?? modelData.inputTokens);
   const outputTokens = readNumber(modelData.cumulativeOutputTokens ?? modelData.outputTokens);
   const totalUsed = inputTokens + outputTokens;
-  const contextWindow = parseInt(process.env.CONTEXT_WINDOW, 10) || 160000;
 
   return {
     used: totalUsed,
-    total: contextWindow,
+    total: resolveWindow(totalUsed),
     inputTokens,
     outputTokens,
     breakdown: {
@@ -575,12 +617,23 @@ async function queryClaudeSDK(command, options = {}, ws) {
       }]
     };
 
-    // Caveat: in 'auto' and 'bypassPermissions' modes the SDK resolves approval
-    // at the permission-mode step and skips this callback, so interactive tools
-    // (AskUserQuestion, ExitPlanMode) won't reach the UI — the classifier/bypass
-    // auto-approves them and the model acts on a generated answer. Move these
-    // tools to a PreToolUse hook (runs before the mode check) if we need them
-    // to work in those modes.
+    // Interactive tools (TOOLS_REQUIRING_INTERACTION) do reach the UI through
+    // this callback in 'default', 'auto' and 'bypassPermissions' — verified
+    // end-to-end against @anthropic-ai/claude-agent-sdk 0.3.165 by driving
+    // AskUserQuestion in each mode and confirming the user's actual selection
+    // came back (using a non-first option, so a defaulting auto-approver could
+    // not produce a false pass).
+    //
+    // This is version-sensitive: an earlier comment here recorded the opposite,
+    // that 'auto' and 'bypassPermissions' resolve approval at the permission-mode
+    // step and skip this callback entirely. Re-test on SDK upgrades. If that
+    // behaviour ever returns, the fix is to move these tools to a PreToolUse
+    // hook, which runs before the mode check — note that hook-based prompting
+    // would also need to suppress this callback for the same tool to avoid
+    // prompting the user twice.
+    //
+    // Still untested: ExitPlanMode in 'auto'/'bypassPermissions' (awkward to
+    // exercise, since 'plan' is its own permission mode).
     sdkOptions.canUseTool = async (toolName, input, context) => {
       const requiresInteraction = TOOLS_REQUIRING_INTERACTION.has(toolName);
 
@@ -724,7 +777,7 @@ async function queryClaudeSDK(command, options = {}, ws) {
       }
 
       // Extract and send token budget updates from assistant/result usage payloads
-      const tokenBudgetData = extractTokenBudget(message);
+      const tokenBudgetData = extractTokenBudget(message, sdkOptions.model);
       if (tokenBudgetData) {
         ws.send(createNormalizedMessage({ kind: 'status', text: 'token_budget', tokenBudget: tokenBudgetData, sessionId: capturedSessionId || sessionId || null, provider: 'claude' }));
       }

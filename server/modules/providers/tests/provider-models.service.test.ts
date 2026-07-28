@@ -111,27 +111,34 @@ test('provider models are cached for the three-day ttl', async () => {
       }),
     });
 
-    const first = await service.getProviderModels('codex');
-    const cached = await service.getProviderModels('codex');
+    // `cursor` shells out to `cursor-agent --list-models`, so it is one of the
+    // providers the TTL cache is meant to protect. (`codex` is intentionally
+    // excluded from the cache — see the uncached-provider test below.)
+    const first = await service.getProviderModels('cursor');
+    const cached = await service.getProviderModels('cursor');
     assert.equal(loadCount, 1);
     assert.equal(cached.models.DEFAULT, first.models.DEFAULT);
     assert.equal(cached.cache.source, 'memory');
 
     currentTime += PROVIDER_MODELS_CACHE_TTL_MS - 1;
-    await service.getProviderModels('codex');
+    await service.getProviderModels('cursor');
     assert.equal(loadCount, 1);
 
     currentTime += 2;
-    const refreshed = await service.getProviderModels('codex');
+    const refreshed = await service.getProviderModels('cursor');
     assert.equal(loadCount, 2);
-    assert.equal(refreshed.models.DEFAULT, 'codex-2');
+    assert.equal(refreshed.models.DEFAULT, 'cursor-2');
   } finally {
     await rm(tempRoot, { recursive: true, force: true });
   }
 });
 
-test('claude provider models are always loaded directly from the provider', async () => {
-  const tempRoot = await mkdtemp(path.join(os.tmpdir(), 'provider-model-cache-claude-direct-'));
+// `codex` resolves its catalog by reading `~/.codex/models_cache.json`, a local
+// file the Codex CLI keeps current. Caching that behind the multi-day TTL would
+// pin the UI to a snapshot taken before the CLI last refreshed it, so codex is
+// deliberately excluded from the cache.
+test('codex provider models are always loaded directly from the provider', async () => {
+  const tempRoot = await mkdtemp(path.join(os.tmpdir(), 'provider-model-cache-codex-direct-'));
   let loadCount = 0;
 
   try {
@@ -149,12 +156,12 @@ test('claude provider models are always loaded directly from the provider', asyn
       }),
     });
 
-    const first = await service.getProviderModels('claude');
-    const second = await service.getProviderModels('claude');
+    const first = await service.getProviderModels('codex');
+    const second = await service.getProviderModels('codex');
 
     assert.equal(loadCount, 2);
-    assert.equal(first.models.DEFAULT, 'claude-1');
-    assert.equal(second.models.DEFAULT, 'claude-2');
+    assert.equal(first.models.DEFAULT, 'codex-1');
+    assert.equal(second.models.DEFAULT, 'codex-2');
     assert.equal(second.cache.source, 'fresh');
   } finally {
     await rm(tempRoot, { recursive: true, force: true });
@@ -170,13 +177,13 @@ test('provider model cache is persisted across service instances', async () => {
       cachePath,
       resolveProvider: () => ({
         models: {
-          getSupportedModels: async () => createModels('gemini-cached'),
-          getCurrentActiveModel: async () => createCurrentActiveModel('gemini-active'),
-          changeActiveModel: async (input) => createSessionActiveModelChange('gemini', input),
+          getSupportedModels: async () => createModels('opencode-cached'),
+          getCurrentActiveModel: async () => createCurrentActiveModel('opencode-active'),
+          changeActiveModel: async (input) => createSessionActiveModelChange('opencode', input),
         },
       }),
     });
-    await writer.getProviderModels('gemini');
+    await writer.getProviderModels('opencode');
 
     const reader = createProviderModelsService({
       cachePath,
@@ -185,13 +192,13 @@ test('provider model cache is persisted across service instances', async () => {
           getSupportedModels: async () => {
             throw new Error('loader should not be called for persisted cache hits');
           },
-          getCurrentActiveModel: async () => createCurrentActiveModel('gemini-active'),
-          changeActiveModel: async (input) => createSessionActiveModelChange('gemini', input),
+          getCurrentActiveModel: async () => createCurrentActiveModel('opencode-active'),
+          changeActiveModel: async (input) => createSessionActiveModelChange('opencode', input),
         },
       }),
     });
-    const models = await reader.getProviderModels('gemini');
-    assert.equal(models.models.DEFAULT, 'gemini-cached');
+    const models = await reader.getProviderModels('opencode');
+    assert.equal(models.models.DEFAULT, 'opencode-cached');
     assert.equal(models.cache.source, 'disk');
   } finally {
     await rm(tempRoot, { recursive: true, force: true });

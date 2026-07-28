@@ -75,11 +75,25 @@ export default {
           from: { opacity: '0', transform: 'translate(-50%, -48%) scale(0.96)' },
           to: { opacity: '1', transform: 'translate(-50%, -50%) scale(1)' },
         },
+        'pulse-brief': {
+          '0%, 100%': { opacity: '1' },
+          '50%': { opacity: '.5' },
+        },
       },
       animation: {
-        shimmer: 'shimmer 2s linear infinite',
+        // Finite for the same reason as pulse-brief: the shimmer sweeps
+        // background-position under bg-clip-text, which cannot be composited, so
+        // every frame is a full re-raster of the label. The text stays legible
+        // once it stops — the base gradient layer is solid muted-foreground.
+        shimmer: 'shimmer 2s linear 3',
         'dialog-overlay-show': 'dialog-overlay-show 150ms ease-out',
         'dialog-content-show': 'dialog-content-show 150ms ease-out',
+        // Attention pulse for badges marking long-lived state (update available,
+        // restart required). Deliberately finite: an infinite animation keeps the
+        // compositor producing frames for as long as the state holds, and on a
+        // high-refresh display that is a continuous full-framebuffer blit for a
+        // badge whose meaning never changes.
+        'pulse-brief': 'pulse-brief 2s cubic-bezier(0.4, 0, 0.6, 1) 3',
       },
     },
   },

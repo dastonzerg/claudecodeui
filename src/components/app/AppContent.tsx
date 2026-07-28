@@ -73,6 +73,7 @@ function AppContentInner() {
     setIsInputFocused,
     openSettings,
     refreshProjectsSilently,
+    renameSelectedSession,
     registerOptimisticSession,
     sidebarSharedProps,
     handleNewSession,
@@ -229,6 +230,7 @@ function AppContentInner() {
         <MainContent
           selectedProject={selectedProject}
           selectedSession={selectedSession}
+          onRenameSession={renameSelectedSession}
           activeTab={activeTab}
           setActiveTab={setActiveTab}
           ws={ws}

@@ -109,7 +109,7 @@ export const BashCommandDisplay: React.FC<BashCommandDisplayProps> = ({
         </code>
 
         {isRunning && (
-          <span className="h-2.5 w-2.5 flex-shrink-0 animate-spin rounded-full border-[1.5px] border-muted-foreground/30 border-t-emerald-400" />
+          <span className="h-2 w-2 flex-shrink-0 rounded-full bg-emerald-400" />
         )}
         {status && status !== 'running' && <ToolStatusBadge status={status} className="flex-shrink-0" />}
         {!open && hasOutput && !isRunning && (

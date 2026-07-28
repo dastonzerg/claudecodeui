@@ -353,8 +353,10 @@ export default function ChatComposer({
               title={t('input.clickToChangeMode')}
             >
               <div className="flex items-center gap-1.5">
+                {/* The pill itself is colour-coded, so the dot would be redundant
+                    next to the abbreviated label on narrow screens. */}
                 <div
-                  className={`h-2.5 w-2.5 rounded-full sm:h-1.5 sm:w-1.5 ${
+                  className={`hidden h-1.5 w-1.5 rounded-full sm:block ${
                     permissionMode === 'default'
                       ? 'bg-muted-foreground'
                       : permissionMode === 'acceptEdits'
@@ -366,6 +368,9 @@ export default function ChatComposer({
                             : 'bg-primary'
                   }`}
                 />
+                <span className="whitespace-nowrap sm:hidden">
+                  {t(`codex.modesShort.${permissionMode}`)}
+                </span>
                 <span className="hidden whitespace-nowrap sm:inline">
                   {permissionMode === 'default' && t('codex.modes.default')}
                   {permissionMode === 'acceptEdits' && t('codex.modes.acceptEdits')}

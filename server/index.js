@@ -13,6 +13,8 @@ import mime from 'mime-types';
 import Database from 'better-sqlite3';
 
 import { AppError, WORKSPACES_ROOT, getOpenCodeDatabasePath, validateWorkspacePath } from '@/shared/utils.js';
+import { getClaudeContextWindow, getClaudeModelFamily } from '@/shared/claude-context-window.js';
+import { getClaudeConfiguredDefaultModel, getClaudeSelectedModelFromLines } from '@/modules/providers/list/claude/claude-models.provider.js';
 import { closeSessionsWatcher, initializeSessionsWatcher } from '@/modules/providers/index.js';
 import { createWebSocketServer } from '@/modules/websocket/index.js';
 
@@ -1436,12 +1438,11 @@ app.get('/api/projects/:projectId/sessions/:sessionId/token-usage', authenticate
         }
         const lines = fileContent.trim().split('\n');
 
-        const parsedContextWindow = parseInt(process.env.CONTEXT_WINDOW, 10);
-        const contextWindow = Number.isFinite(parsedContextWindow) ? parsedContextWindow : 160000;
         let inputTokens = 0;
         let outputTokens = 0;
         let cacheReadTokens = 0;
         let cacheCreationTokens = 0;
+        let sessionModel = null;
 
         // Find the latest assistant message with usage data (scan from end)
         for (let i = lines.length - 1; i >= 0; i--) {
@@ -1458,6 +1459,7 @@ app.get('/api/projects/:projectId/sessions/:sessionId/token-usage', authenticate
                     cacheCreationTokens = readUsageNumber(usage.cache_creation_input_tokens ?? usage.cacheCreationInputTokens ?? usage.cacheCreationTokens);
                     inputTokens = directInputTokens + cacheReadTokens + cacheCreationTokens;
                     outputTokens = readUsageNumber(usage.output_tokens ?? usage.outputTokens);
+                    sessionModel = entry.message?.model ?? null;
 
                     break; // Stop after finding the latest assistant message
                 }
@@ -1469,6 +1471,35 @@ app.get('/api/projects/:projectId/sessions/:sessionId/token-usage', authenticate
 
         const totalUsed = inputTokens + outputTokens;
         const cacheTokens = cacheReadTokens + cacheCreationTokens;
+
+        // Prefer an explicit override, then the real per-model window. An
+        // assistant's `message.model` is the bare id (`claude-opus-4-8`) with
+        // any `[1m]` beta stripped, so the window has to come from a model
+        // *selection*: the session's own `/model` line when it has one, else
+        // Claude Code's saved default (which sessions started on it never
+        // record). The saved default is global, so it is only trusted when it
+        // names the same model family the session actually ran on.
+        const parsedContextWindow = parseInt(process.env.CONTEXT_WINDOW, 10);
+        let contextWindow;
+        if (Number.isFinite(parsedContextWindow)) {
+            contextWindow = parsedContextWindow;
+        } else {
+            let selectedModel = getClaudeSelectedModelFromLines(lines);
+            if (!selectedModel) {
+                const configuredModel = await getClaudeConfiguredDefaultModel();
+                if (configuredModel && getClaudeModelFamily(configuredModel) === getClaudeModelFamily(sessionModel)) {
+                    selectedModel = configuredModel;
+                }
+            }
+            contextWindow = getClaudeContextWindow(selectedModel) ?? getClaudeContextWindow(sessionModel) ?? 160000;
+
+            // Usage above the resolved window proves the session actually ran
+            // on the larger 1M beta, whatever the model strings implied. This
+            // is evidence, not inference, so it overrides them.
+            if (totalUsed > contextWindow) {
+                contextWindow = 1000000;
+            }
+        }
 
         res.json({
             used: totalUsed,

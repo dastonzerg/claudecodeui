@@ -439,6 +439,28 @@ export function useProjectsState({
     await fetchProjects({ showLoadingState: false });
   }, [fetchProjects]);
 
+  // Renames a session from the chat header. Optimistically updates the selected
+  // session's title so the header reflects the change immediately, then refreshes
+  // the sidebar list to stay in sync with the backend.
+  const renameSelectedSession = useCallback(async (sessionId: string, summary: string) => {
+    const trimmed = summary.trim();
+    if (!trimmed) {
+      return;
+    }
+    try {
+      const response = await api.renameSession(sessionId, trimmed);
+      if (!response.ok) {
+        return;
+      }
+      setSelectedSession((previous) =>
+        previous && previous.id === sessionId ? { ...previous, summary: trimmed } : previous,
+      );
+      await refreshProjectsSilently();
+    } catch (error) {
+      console.error('[MainContent] Error renaming session:', error);
+    }
+  }, [refreshProjectsSilently]);
+
   const registerOptimisticSession = useCallback(({
     sessionId: newSessionId,
     provider,
@@ -1000,6 +1022,7 @@ export function useProjectsState({
     openSettings,
     fetchProjects,
     refreshProjectsSilently,
+    renameSelectedSession,
     registerOptimisticSession,
     sidebarSharedProps,
     handleProjectSelect,

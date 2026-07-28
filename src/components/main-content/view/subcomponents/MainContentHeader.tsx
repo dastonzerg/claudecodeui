@@ -15,6 +15,7 @@ export default function MainContentHeader({
   setActiveTab,
   selectedProject,
   selectedSession,
+  onRenameSession,
   shouldShowTasksTab,
   shouldShowBrowserTab,
   isMobile,
@@ -51,6 +52,7 @@ export default function MainContentHeader({
             activeTab={activeTab}
             selectedProject={selectedProject}
             selectedSession={selectedSession}
+            onRenameSession={onRenameSession}
             shouldShowTasksTab={shouldShowTasksTab}
           />
         </div>
@@ -63,7 +65,7 @@ export default function MainContentHeader({
               title={t('tooltips.markSessionRead', 'Mark as read')}
             >
               <CheckCheck className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">{t('chat.markAsRead', 'Mark as read')}</span>
+              <span className="hidden sm:inline">{t('chat.markAsRead', 'Mark Read')}</span>
             </button>
           )}
 

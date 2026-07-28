@@ -802,11 +802,18 @@ async function parseClaudeSessionMatches(
       ? matchedSessionsForFile
       : [session];
 
-    const targetSessionIds = new Set(targetSessions.map((candidate) => candidate.session_id));
+    // Claude writes the provider session id into each JSONL row, while the DB
+    // may store a different app-facing `session_id` (for app-created or
+    // remapped sessions). Match rows by provider id, but key state/results by
+    // the app id so downstream lookups (custom name, cache `.get`) stay valid.
+    const providerIdToAppId = new Map<string, string>();
     const customNameBySessionId = new Map<string, string | null>();
     for (const candidate of targetSessions) {
+      const providerId = candidate.provider_session_id ?? candidate.session_id;
+      providerIdToAppId.set(providerId, candidate.session_id);
       customNameBySessionId.set(candidate.session_id, candidate.custom_name ?? null);
     }
+    const targetProviderIds = new Set(providerIdToAppId.keys());
 
     type ClaudeSessionSearchState = {
       matches: SessionConversationMatch[];
@@ -854,13 +861,14 @@ async function parseClaudeSessionMatches(
         if (entry.sessionId) {
           currentSessionId = String(entry.sessionId);
         }
-        const entrySessionId = entry.sessionId
+        const entryProviderId = entry.sessionId
           ? String(entry.sessionId)
           : currentSessionId;
-        if (!entrySessionId || !targetSessionIds.has(entrySessionId)) {
+        if (!entryProviderId || !targetProviderIds.has(entryProviderId)) {
           continue;
         }
 
+        const entrySessionId = providerIdToAppId.get(entryProviderId) ?? entryProviderId;
         const state = getSessionState(entrySessionId);
 
         if (entry.type === 'summary' && entry.summary) {

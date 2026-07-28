@@ -17,7 +17,16 @@ import { readProviderSessionActiveModelChange } from '@/shared/utils.js';
 
 export const PROVIDER_MODELS_CACHE_TTL_MS = 3 * 24 * 60 * 60 * 1000;
 const PROVIDER_MODELS_CACHE_VERSION = 1;
-const UNCACHED_PROVIDERS = new Set<LLMProvider>(['claude', 'gemini']);
+/**
+ * Providers whose catalog is cheap enough to resolve on every request.
+ *
+ * The TTL cache exists to avoid repeated subprocess spawns (`cursor-agent
+ * --list-models`, `opencode models`, and the Claude SDK control query). Codex
+ * instead reads `~/.codex/models_cache.json`, a local file the Codex CLI keeps
+ * current — caching that behind a multi-day TTL buys no measurable speed and
+ * pins the UI to a snapshot taken before the CLI last refreshed it.
+ */
+const UNCACHED_PROVIDERS = new Set<LLMProvider>(['codex', 'gemini']);
 
 type ProviderModelsServiceDependencies = {
   resolveProvider?: (provider: LLMProvider) => Pick<IProvider, 'models'>;

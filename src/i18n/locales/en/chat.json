@@ -95,6 +95,13 @@
       "bypassPermissions": "Bypass Permissions",
       "plan": "Plan Mode"
     },
+    "modesShort": {
+      "default": "Ask",
+      "auto": "Auto",
+      "acceptEdits": "Edits",
+      "bypassPermissions": "Bypass",
+      "plan": "Plan"
+    },
     "descriptions": {
       "default": "Only trusted commands (ls, cat, grep, git status, etc.) run automatically. Other commands are skipped. Can write to workspace.",
       "auto": "A model classifier decides per tool call whether to approve or deny. Hands-off, but safer than Bypass — denials still happen.",
