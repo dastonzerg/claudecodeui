@@ -1,9 +1,10 @@
-import { Cloud, ExternalLink, MessageSquare, Star, Users } from 'lucide-react';
+import { Cloud, ExternalLink, LogOut, MessageSquare, Star, Users } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import { CLOUDCLI_WORDMARK_FONT_FAMILY } from '../../../../constants/branding';
 import { IS_PLATFORM } from '../../../../constants/config';
 import { useVersionCheck } from '../../../../hooks/useVersionCheck';
+import { useAuth } from '../../../auth';
 import PremiumFeatureCard from '../PremiumFeatureCard';
 
 const GITHUB_REPO_URL = 'https://github.com/siteboon/claudecodeui';
@@ -30,6 +31,7 @@ function DiscordIcon({ className }: { className?: string }) {
 export default function AboutTab() {
   const { t } = useTranslation('settings');
   const { updateAvailable, latestVersion, currentVersion, releaseInfo } = useVersionCheck('siteboon', 'claudecodeui');
+  const { user, logout } = useAuth();
   const releasesUrl = releaseInfo?.htmlUrl || `${GITHUB_REPO_URL}/releases`;
 
   return (
@@ -158,6 +160,28 @@ export default function AboutTab() {
             title="Team Management"
             description="Multiple users, role-based access, and shared projects for your team."
           />
+        </div>
+      )}
+
+      {/* Sign out. Clearing only the stored token is the light-touch way to
+          recover from an expired one — clearing browser site data works too but
+          takes every other preference with it. */}
+      {!IS_PLATFORM && (
+        <div className="space-y-3 border-t border-border/50 pt-6">
+          <h3 className="text-sm font-medium text-foreground">{t('account.title')}</h3>
+          <div className="flex items-center justify-between gap-3">
+            {user?.username && (
+              <span className="min-w-0 truncate text-sm text-muted-foreground">{user.username}</span>
+            )}
+            <button
+              type="button"
+              onClick={logout}
+              className="inline-flex flex-shrink-0 items-center gap-2 rounded-lg border border-border/60 px-3 py-2 text-sm text-muted-foreground transition-colors hover:border-destructive/40 hover:bg-destructive/10 hover:text-destructive"
+            >
+              <LogOut className="h-4 w-4" />
+              {t('account.signOut', 'Sign out')}
+            </button>
+          </div>
         </div>
       )}
 

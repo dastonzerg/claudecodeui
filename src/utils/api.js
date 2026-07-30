@@ -1,5 +1,9 @@
 import { IS_PLATFORM } from "../constants/config";
 
+// Broadcast so AuthContext can drop the session and show the login screen.
+// A plain event keeps this module free of React imports; AuthContext listens.
+export const AUTH_UNAUTHORIZED_EVENT = 'auth:unauthorized';
+
 // Utility function for authenticated API calls
 export const authenticatedFetch = (url, options = {}) => {
   const token = localStorage.getItem('auth-token');
@@ -26,6 +30,17 @@ export const authenticatedFetch = (url, options = {}) => {
     if (refreshedToken) {
       localStorage.setItem('auth-token', refreshedToken);
     }
+
+    // A token that is expired or otherwise unverifiable comes back as 403 (401
+    // means none was sent). Without this the stored token stays put and every
+    // later call fails the same way, leaving the UI convinced it is signed in
+    // with no route back to the login screen. Only act when a token was
+    // actually sent, so unauthenticated probes cannot trigger a spurious logout.
+    if (!IS_PLATFORM && token && (response.status === 401 || response.status === 403)) {
+      localStorage.removeItem('auth-token');
+      window.dispatchEvent(new CustomEvent(AUTH_UNAUTHORIZED_EVENT));
+    }
+
     return response;
   });
 };

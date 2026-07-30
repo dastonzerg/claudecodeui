@@ -15,7 +15,8 @@
     "username": "Username",
     "email": "Email",
     "profile": "Profile",
-    "changePassword": "Change Password"
+    "changePassword": "Change Password",
+    "signOut": "Sign out"
   },
   "mcp": {
     "title": "MCP Servers",

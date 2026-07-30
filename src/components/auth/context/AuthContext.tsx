@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { IS_PLATFORM } from '../../../constants/config';
-import { api } from '../../../utils/api';
+import { api, AUTH_UNAUTHORIZED_EVENT } from '../../../utils/api';
 import { AUTH_ERROR_MESSAGES, AUTH_TOKEN_STORAGE_KEY } from '../constants';
 import type {
   AuthContextValue,
@@ -127,6 +127,19 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
     void checkAuthStatus();
   }, [checkAuthStatus, checkOnboardingStatus]);
+
+  // The token is otherwise only validated at startup, so a long-lived tab or
+  // installed PWA keeps using one that expired since it booted. authenticatedFetch
+  // reports that here so the session drops and ProtectedRoute shows the login form.
+  useEffect(() => {
+    if (IS_PLATFORM) {
+      return undefined;
+    }
+
+    const handleUnauthorized = () => clearSession();
+    window.addEventListener(AUTH_UNAUTHORIZED_EVENT, handleUnauthorized);
+    return () => window.removeEventListener(AUTH_UNAUTHORIZED_EVENT, handleUnauthorized);
+  }, [clearSession]);
 
   const login = useCallback<AuthContextValue['login']>(
     async (username, password) => {
