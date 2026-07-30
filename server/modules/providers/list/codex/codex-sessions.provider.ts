@@ -155,8 +155,13 @@ async function getCodexSessionMessages(
 
         if (entry.type === 'event_msg' && entry.payload?.type === 'token_count' && entry.payload?.info) {
           const info = entry.payload.info as AnyRecord;
-          if (info.total_token_usage) {
-            const usage = info.total_token_usage as AnyRecord;
+          // `last_token_usage` is the most recent request, i.e. what actually
+          // occupies the context window. `total_token_usage` accumulates across
+          // every turn of the session and so runs far past the window, pinning
+          // "% context left" at 0. Fall back to it only for transcripts that
+          // predate the per-request figure.
+          const usage = (info.last_token_usage || info.total_token_usage) as AnyRecord | undefined;
+          if (usage) {
             tokenUsage = {
               used: usage.total_tokens || 0,
               total: info.model_context_window || 200000,
