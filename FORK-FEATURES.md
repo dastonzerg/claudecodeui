@@ -3,6 +3,17 @@
 Everything this fork adds on top of upstream `siteboon/claudecodeui`, so nothing is
 silently lost when merging upstream v1.37.0.
 
+> **Status: merged.** `merge/v1.37.0` @ `9cb3cd5`. Typecheck clean, lint 0 errors,
+> tests 245 pass / 5 fail (the same 5 fail on a pristine v1.37.0 checkout on this
+> machine — verified in a throwaway worktree), build green, server boots and serves.
+> Everything in §1 and §2 was carried forward except where §4 records a deliberate
+> decision to take upstream's version instead.
+>
+> **Entrypoint changed:** `dist-server/server/cli.js` no longer exists. It is now
+> `dist-server/server/modules/cli/cli.js`.
+>
+> The §5 checklist is still **unverified by hand** — that is the remaining work.
+
 | | |
 |---|---|
 | Fork point | `d8dfb2c` (upstream `v1.35.1`) |
@@ -91,13 +102,17 @@ Reference diff: `git diff d8dfb2c..a03cac9 -- server/index.js`
 
 ## 4. Decisions to make before merging
 
-| Item | Situation | Recommendation |
+| Item | Situation | Decision taken |
 |---|---|---|
-| **X15 + X16** (model override) | Upstream added a real `sessions.model` column and **deleted** the `provider-session-active-model-changes.json` sidecar our fix builds on. Our `shared/utils.ts` still references it | Take upstream, drop ours. But confirm their `resolveSessionModel` also fixes the **active-model badge** — that was a second bug in X16 |
-| **X4** (expired token) | Collides functionally with upstream `432b3ff` "refresh auth tokens across realtime clients"; both touch `AuthContext.tsx` and `api.js` | Pick one set of retry semantics deliberately. Keep our sign-out button (F8) either way — upstream has no UI for it |
-| **X12** (mobile rename) | Upstream shipped "fix(sidebar): keep rename input visible on mobile" | Compare; likely take upstream, but check it also covers the `active:scale` / iOS callout half |
-| **`server/gemini-cli.js`** | Gemini provider deleted upstream. Our 4-line `appSessionId` fix dies with it | Delete. No loss |
-| **Gemini overall** | v1.37.0 removes the provider entirely (~2,000 lines) | **Open question — do we use it?** If yes, merging is a regression |
+| **X15 + X16** (model override) | Upstream added a real `sessions.model` column and **deleted** the sidecar our fix built on | **Dropped ours, took upstream.** Their `resolveSessionModel` prefers the session's recorded model and falls back to the composer's current pick — same semantics as X15, backed by the DB column |
+| **X4** (expired token) | Collides with upstream `432b3ff`; both touch `AuthContext.tsx` and `api.js` | **Merged into one mechanism.** Dropped our `auth:unauthorized` event; `authenticatedFetch` now calls upstream's `expireAuthSession()` on a 401/403 that carried a token. Ours is still broader than upstream's header-only `X-Auth-Error` check. Sign-out button (F8) kept |
+| **X12** (mobile rename) | Upstream shipped its own mobile rename fix | **Kept ours.** Ours also tracks the mobile container ref separately and disables `active:scale`; upstream's did not cover the iOS callout half |
+| **F7 caching policy** | Upstream sets `UNCACHED_PROVIDERS = ['claude']`; our F7 inverted it | **Kept ours** (`['codex']`). Our Claude catalog comes from a live SDK query that spawns a subprocess, so it must stay cached. Upstream's two caching tests were rewritten to assert this — revisit if the live query is ever removed |
+| **F9 mobile label** | Upstream replaced the inline permission button with an icon-only `ComposerPermissionMenu` | **Re-applied to the new component** — short label shows below the `sm` breakpoint |
+| **X3 image placeholder** | Upstream's new `extractCodexToolOutput` drops non-text parts, avoiding the crash but losing the marker | **Composed both** — sanitize first so images become `[image #N]`, then extract |
+| **`server/gemini-cli.js`** | Gemini deleted upstream | **Deleted.** Also removed the now-dead gemini branches in `buildProviderShellCommand`, `shell-websocket.service.ts` and `SessionResumeDialog.tsx` |
+| **Gemini overall** | v1.37.0 removes the provider entirely | **Confirmed unused** — not a regression for us |
+| **`npm test` script** | Upstream's new script does not point tsx at `server/tsconfig.json`, so every `@/` import fails (49 of 76 tests) | **Fixed** via `cross-env TSX_TSCONFIG_PATH=server/tsconfig.json`. Worth reporting upstream |
 
 ---
 
