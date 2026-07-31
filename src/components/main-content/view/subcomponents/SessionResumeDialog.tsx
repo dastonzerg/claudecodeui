@@ -22,7 +22,6 @@ type CopyStateKey = 'command' | 'path' | 'sessionId' | null;
 function providerLabel(provider: SessionResumeInfo['provider'] | ProjectSession['__provider']): string {
   if (provider === 'codex') return 'Codex';
   if (provider === 'cursor') return 'Cursor';
-  if (provider === 'gemini') return 'Gemini';
   if (provider === 'opencode') return 'OpenCode';
   return 'Claude';
 }

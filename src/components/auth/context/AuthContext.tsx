@@ -1,6 +1,13 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { IS_PLATFORM } from '../../../constants/config';
-import { api, AUTH_UNAUTHORIZED_EVENT } from '../../../utils/api';
+import {
+  api,
+  AUTH_SESSION_EXPIRED_EVENT,
+  AUTH_TOKEN_REFRESHED_EVENT,
+  getAuthTokenRefreshDelay,
+  isValidRefreshedToken,
+  storeAuthToken,
+} from '../../../utils/api';
 import { AUTH_ERROR_MESSAGES, AUTH_TOKEN_STORAGE_KEY } from '../constants';
 import type {
   AuthContextValue,
@@ -18,7 +25,7 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 const readStoredToken = (): string | null => localStorage.getItem(AUTH_TOKEN_STORAGE_KEY);
 
 const persistToken = (token: string) => {
-  localStorage.setItem(AUTH_TOKEN_STORAGE_KEY, token);
+  storeAuthToken(token);
 };
 
 const clearStoredToken = () => {
@@ -74,6 +81,49 @@ export function AuthProvider({ children }: AuthProviderProps) {
     await checkOnboardingStatus();
   }, [checkOnboardingStatus]);
 
+  const refreshSession = useCallback(async () => {
+    if (IS_PLATFORM || !token || !user) {
+      return;
+    }
+
+    try {
+      const response = await api.auth.refresh();
+      if (!response.ok) {
+        return;
+      }
+
+      const payload = await parseJsonSafely<AuthSessionPayload>(response);
+      if (isValidRefreshedToken(payload?.token)) {
+        setToken(payload.token);
+        persistToken(payload.token);
+      }
+    } catch (caughtError) {
+      // A transient network failure must not sign the user out. Focus/visibility
+      // and the next scheduled refresh will retry while the token remains valid.
+      console.warn('[Auth] Session refresh failed:', caughtError);
+    }
+  }, [token, user]);
+
+  useEffect(() => {
+    const handleTokenRefreshed = (event: Event) => {
+      const nextToken = (event as CustomEvent<unknown>).detail;
+      if (isValidRefreshedToken(nextToken)) {
+        setToken(nextToken);
+      }
+    };
+    const handleSessionExpired = () => {
+      clearSession();
+      setError(AUTH_ERROR_MESSAGES.sessionExpired);
+    };
+
+    window.addEventListener(AUTH_TOKEN_REFRESHED_EVENT, handleTokenRefreshed);
+    window.addEventListener(AUTH_SESSION_EXPIRED_EVENT, handleSessionExpired);
+    return () => {
+      window.removeEventListener(AUTH_TOKEN_REFRESHED_EVENT, handleTokenRefreshed);
+      window.removeEventListener(AUTH_SESSION_EXPIRED_EVENT, handleSessionExpired);
+    };
+  }, [clearSession]);
+
   const checkAuthStatus = useCallback(async () => {
     try {
       setIsLoading(true);
@@ -128,18 +178,42 @@ export function AuthProvider({ children }: AuthProviderProps) {
     void checkAuthStatus();
   }, [checkAuthStatus, checkOnboardingStatus]);
 
-  // The token is otherwise only validated at startup, so a long-lived tab or
-  // installed PWA keeps using one that expired since it booted. authenticatedFetch
-  // reports that here so the session drops and ProtectedRoute shows the login form.
+  // Note: recovery from a server-rejected (401/403) token is handled by
+  // authenticatedFetch calling expireAuthSession(), which fires
+  // AUTH_SESSION_EXPIRED_EVENT — already handled by the listener above.
   useEffect(() => {
-    if (IS_PLATFORM) {
+    if (IS_PLATFORM || !token || !user) {
       return undefined;
     }
 
-    const handleUnauthorized = () => clearSession();
-    window.addEventListener(AUTH_UNAUTHORIZED_EVENT, handleUnauthorized);
-    return () => window.removeEventListener(AUTH_UNAUTHORIZED_EVENT, handleUnauthorized);
-  }, [clearSession]);
+    const refreshIfNeeded = () => {
+      const refreshDelay = getAuthTokenRefreshDelay(token);
+      if (refreshDelay !== null && refreshDelay <= 0) {
+        void refreshSession();
+      }
+    };
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        refreshIfNeeded();
+      }
+    };
+
+    const refreshDelay = getAuthTokenRefreshDelay(token);
+    const refreshTimer = refreshDelay === null
+      ? null
+      : window.setTimeout(() => void refreshSession(), refreshDelay);
+
+    window.addEventListener('focus', refreshIfNeeded);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      if (refreshTimer !== null) {
+        window.clearTimeout(refreshTimer);
+      }
+      window.removeEventListener('focus', refreshIfNeeded);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [refreshSession, token, user]);
 
   const login = useCallback<AuthContextValue['login']>(
     async (username, password) => {
@@ -194,15 +268,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
   );
 
   const logout = useCallback(() => {
-    const tokenToInvalidate = token;
+    // JWT logout is client-side: the server endpoint does not maintain a
+    // revocation list, so clearing the session is the complete operation.
     clearSession();
-
-    if (tokenToInvalidate) {
-      void api.auth.logout().catch((caughtError: unknown) => {
-        console.error('Logout endpoint error:', caughtError);
-      });
-    }
-  }, [clearSession, token]);
+  }, [clearSession]);
 
   const contextValue = useMemo<AuthContextValue>(
     () => ({

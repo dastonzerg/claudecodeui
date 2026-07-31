@@ -1,6 +1,5 @@
 import { useTranslation } from 'react-i18next';
-import { useMemo } from 'react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type {
   ChangeEvent,
   ClipboardEvent,
@@ -11,12 +10,14 @@ import type {
   RefObject,
   TouchEvent,
 } from 'react';
-import { ImageIcon, MessageSquareIcon, XIcon, Loader2 } from 'lucide-react';
+import { PaperclipIcon, MessageSquareIcon, XIcon, Loader2, ArrowUpIcon } from 'lucide-react';
 
 import { useVoiceInput } from '../../hooks/useVoiceInput';
 import { useVoiceAvailable } from '../../hooks/useVoiceAvailable';
+import type { QueuedDraft } from '../../hooks/useChatComposerState';
 import type { SessionActivity } from '../../../../hooks/useSessionProtection';
 import type { PendingPermissionRequest, PermissionMode } from '../../types/types';
+import type { ProviderModelOption } from '../../../../types/app';
 import {
   PromptInput,
   PromptInputHeader,
@@ -30,10 +31,13 @@ import {
 
 import CommandMenu from './CommandMenu';
 import ActivityIndicator from './ActivityIndicator';
-import ImageAttachment from './ImageAttachment';
+import ComposerAttachment from './ComposerAttachment';
 import VoiceInputButton from './VoiceInputButton';
 import PermissionRequestsBanner from './PermissionRequestsBanner';
 import TokenUsageSummary from './TokenUsageSummary';
+import QueuedMessageCard from './QueuedMessageCard';
+import ComposerModelMenu from './ComposerModelMenu';
+import ComposerPermissionMenu from './ComposerPermissionMenu';
 
 interface MentionableFile {
   name: string;
@@ -61,7 +65,16 @@ interface ChatComposerProps {
   isLoading: boolean;
   onAbortSession: () => void;
   permissionMode: PermissionMode | string;
-  onModeSwitch: () => void;
+  availablePermissionModes: (PermissionMode | string)[];
+  onSelectPermissionMode: (mode: PermissionMode | string) => void;
+  providerLabel: string;
+  effort: string;
+  availableEffortOptions: NonNullable<ProviderModelOption['effort']>['values'];
+  onSelectEffort: (effort: string) => void;
+  model: string;
+  availableModelOptions: ProviderModelOption[];
+  onSelectModel: (model: string) => void;
+  modelsLoading: boolean;
   tokenBudget: Record<string, unknown> | null;
   onShowTokenUsage: () => void;
   slashCommandsCount: number;
@@ -70,10 +83,13 @@ interface ChatComposerProps {
   onClearInput: () => void;
   onSubmit: (event: FormEvent<HTMLFormElement> | MouseEvent<HTMLButtonElement> | TouchEvent<HTMLButtonElement>) => void;
   isDragActive: boolean;
-  attachedImages: File[];
-  onRemoveImage: (index: number) => void;
-  uploadingImages: Map<string, number>;
-  imageErrors: Map<string, string>;
+  queuedDraft: QueuedDraft | null;
+  onEditQueuedDraft: () => void;
+  onDeleteQueuedDraft: () => void;
+  attachedFiles: File[];
+  onRemoveAttachment: (index: number) => void;
+  uploadingFiles: Map<string, number>;
+  fileErrors: Map<string, string>;
   showFileDropdown: boolean;
   filteredFiles: MentionableFile[];
   selectedFileIndex: number;
@@ -86,7 +102,7 @@ interface ChatComposerProps {
   frequentCommands: SlashCommand[];
   getRootProps: (...args: unknown[]) => Record<string, unknown>;
   getInputProps: (...args: unknown[]) => Record<string, unknown>;
-  openImagePicker: () => void;
+  openAttachmentPicker: () => void;
   inputHighlightRef: RefObject<HTMLDivElement>;
   renderInputWithMentions: (text: string) => ReactNode;
   textareaRef: RefObject<HTMLTextAreaElement>;
@@ -113,7 +129,16 @@ export default function ChatComposer({
   isLoading,
   onAbortSession,
   permissionMode,
-  onModeSwitch,
+  availablePermissionModes,
+  onSelectPermissionMode,
+  providerLabel,
+  effort,
+  availableEffortOptions,
+  onSelectEffort,
+  model,
+  availableModelOptions,
+  onSelectModel,
+  modelsLoading,
   tokenBudget,
   onShowTokenUsage,
   slashCommandsCount,
@@ -122,10 +147,13 @@ export default function ChatComposer({
   onClearInput,
   onSubmit,
   isDragActive,
-  attachedImages,
-  onRemoveImage,
-  uploadingImages,
-  imageErrors,
+  queuedDraft,
+  onEditQueuedDraft,
+  onDeleteQueuedDraft,
+  attachedFiles,
+  onRemoveAttachment,
+  uploadingFiles,
+  fileErrors,
   showFileDropdown,
   filteredFiles,
   selectedFileIndex,
@@ -138,7 +166,7 @@ export default function ChatComposer({
   frequentCommands,
   getRootProps,
   getInputProps,
-  openImagePicker,
+  openAttachmentPicker,
   inputHighlightRef,
   renderInputWithMentions,
   textareaRef,
@@ -167,7 +195,7 @@ export default function ChatComposer({
       left: textareaRect ? textareaRect.left : 16,
       bottom: textareaRect ? window.innerHeight - textareaRect.top + 8 : 90,
     };
-  }, [input, isCommandMenuOpen, textareaRef]);
+  }, [isCommandMenuOpen, textareaRef]);
 
   // Voice state is hosted here (not in the mic button) so the main Send button can stop
   // recording and send the transcript in one tap, the way the mic button drops it in the box.
@@ -199,6 +227,23 @@ export default function ChatComposer({
   const hasPendingPermissions = pendingPermissionRequests.length > 0;
   const hasActivityIndicator = Boolean(activity && !hasPendingPermissions);
 
+  const hasQueuedDraft = Boolean(queuedDraft);
+  const canQueueDraft = isLoading && Boolean(input.trim() || attachedFiles.length > 0);
+  const submitHint = canQueueDraft
+    ? hasQueuedDraft
+      ? t('input.hintText.updateQueued', { defaultValue: 'Enter to update queued message' })
+      : t('input.hintText.queue', { defaultValue: 'Enter to queue your next message' })
+    : sendByCtrlEnter
+      ? t('input.hintText.ctrlEnter')
+      : t('input.hintText.enter');
+  const submitAriaLabel = canQueueDraft
+    ? hasQueuedDraft
+      ? t('input.queue.update', { defaultValue: 'Update queued message' })
+      : t('input.queue.sendNext', { defaultValue: 'Queue next message' })
+    : isLoading
+      ? t('input.stop')
+      : t('input.send');
+
   return (
     <div className="chat-composer-shell relative flex-shrink-0 px-2 pb-2 pt-0 sm:px-4 sm:pb-4 md:px-4 md:pb-6">
       {!hasPendingPermissions && (
@@ -215,6 +260,17 @@ export default function ChatComposer({
             handleGrantToolPermission={handleGrantToolPermission}
           />
         </div>
+      )}
+
+      {queuedDraft && (
+        <QueuedMessageCard
+          content={queuedDraft.content}
+          attachmentCount={
+            queuedDraft.uploadedAttachments?.length ?? queuedDraft.attachments.length
+          }
+          onEdit={onEditQueuedDraft}
+          onDelete={onDeleteQueuedDraft}
+        />
       )}
 
       {!hasQuestionPanel && <div className="relative mx-auto max-w-[54.25rem]">
@@ -275,22 +331,22 @@ export default function ChatComposer({
                     d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
                   />
                 </svg>
-                <p className="text-sm font-medium">Drop images here</p>
+                <p className="text-sm font-medium">Drop files here</p>
               </div>
             </div>
           )}
 
-          {attachedImages.length > 0 && (
+          {attachedFiles.length > 0 && (
             <PromptInputHeader>
               <div className="rounded-xl bg-muted/40 p-2">
                 <div className="flex flex-wrap gap-2">
-                  {attachedImages.map((file, index) => (
-                    <ImageAttachment
-                      key={index}
+                  {attachedFiles.map((file, index) => (
+                    <ComposerAttachment
+                      key={`${file.name}-${file.lastModified}-${index}`}
                       file={file}
-                      onRemove={() => onRemoveImage(index)}
-                      uploadProgress={uploadingImages.get(file.name)}
-                      error={imageErrors.get(file.name)}
+                      onRemove={() => onRemoveAttachment(index)}
+                      uploadProgress={uploadingFiles.get(file.name)}
+                      error={fileErrors.get(file.name)}
                     />
                   ))}
                 </div>
@@ -324,62 +380,18 @@ export default function ChatComposer({
         </PromptInputBody>
 
         <PromptInputFooter>
-          <PromptInputTools>
+          <PromptInputTools className="min-w-0">
             <PromptInputButton
-              tooltip={{ content: t('input.attachImages') }}
-              onClick={openImagePicker}
+              tooltip={{ content: t('input.attachFiles') }}
+              onClick={openAttachmentPicker}
+              aria-label={t('input.attachFiles')}
             >
-              <ImageIcon />
+              <PaperclipIcon />
             </PromptInputButton>
 
             {onVoiceTranscript && voiceAvailable && (
               <VoiceInputButton state={voiceState} onToggle={voiceToggle} errorMsg={voiceError} />
             )}
-
-            <button
-              type="button"
-              onClick={onModeSwitch}
-              className={`inline-flex h-8 items-center rounded-lg border px-2 text-xs font-medium transition-all duration-200 sm:px-2.5 ${
-                permissionMode === 'default'
-                  ? 'border-border/60 bg-muted/50 text-muted-foreground hover:bg-muted'
-                  : permissionMode === 'acceptEdits'
-                    ? 'border-green-300/60 bg-green-50 text-green-700 hover:bg-green-100 dark:border-green-600/40 dark:bg-green-900/15 dark:text-green-300 dark:hover:bg-green-900/25'
-                    : permissionMode === 'auto'
-                      ? 'border-blue-300/60 bg-blue-50 text-blue-700 hover:bg-blue-100 dark:border-blue-600/40 dark:bg-blue-900/15 dark:text-blue-300 dark:hover:bg-blue-900/25'
-                      : permissionMode === 'bypassPermissions'
-                        ? 'border-orange-300/60 bg-orange-50 text-orange-700 hover:bg-orange-100 dark:border-orange-600/40 dark:bg-orange-900/15 dark:text-orange-300 dark:hover:bg-orange-900/25'
-                        : 'border-primary/20 bg-primary/5 text-primary hover:bg-primary/10'
-              }`}
-              title={t('input.clickToChangeMode')}
-            >
-              <div className="flex items-center gap-1.5">
-                {/* The pill itself is colour-coded, so the dot would be redundant
-                    next to the abbreviated label on narrow screens. */}
-                <div
-                  className={`hidden h-1.5 w-1.5 rounded-full sm:block ${
-                    permissionMode === 'default'
-                      ? 'bg-muted-foreground'
-                      : permissionMode === 'acceptEdits'
-                        ? 'bg-green-500'
-                        : permissionMode === 'auto'
-                          ? 'bg-blue-500'
-                          : permissionMode === 'bypassPermissions'
-                            ? 'bg-orange-500'
-                            : 'bg-primary'
-                  }`}
-                />
-                <span className="whitespace-nowrap sm:hidden">
-                  {t(`codex.modesShort.${permissionMode}`)}
-                </span>
-                <span className="hidden whitespace-nowrap sm:inline">
-                  {permissionMode === 'default' && t('codex.modes.default')}
-                  {permissionMode === 'acceptEdits' && t('codex.modes.acceptEdits')}
-                  {permissionMode === 'auto' && t('codex.modes.auto')}
-                  {permissionMode === 'bypassPermissions' && t('codex.modes.bypassPermissions')}
-                  {permissionMode === 'plan' && t('codex.modes.plan')}
-                </span>
-              </div>
-            </button>
 
             <TokenUsageSummary usage={tokenBudget} onClick={onShowTokenUsage} />
 
@@ -410,29 +422,66 @@ export default function ChatComposer({
 
           </PromptInputTools>
 
-          <div className="flex items-center gap-2">
+          <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
             <div
               className={`hidden text-xs text-muted-foreground/50 transition-opacity duration-200 lg:block ${
-                input.trim() ? 'opacity-0' : 'opacity-100'
+                input.trim() && !canQueueDraft ? 'opacity-0' : 'opacity-100'
               }`}
             >
-              {sendByCtrlEnter ? t('input.hintText.ctrlEnter') : t('input.hintText.enter')}
+              {submitHint}
             </div>
+
+            <ComposerModelMenu
+              effort={effort}
+              effortOptions={availableEffortOptions}
+              onSelectEffort={onSelectEffort}
+              model={model}
+              modelOptions={availableModelOptions}
+              onSelectModel={onSelectModel}
+              modelsLoading={modelsLoading}
+            />
+
+            <ComposerPermissionMenu
+              permissionMode={permissionMode}
+              permissionModes={availablePermissionModes}
+              onSelectPermissionMode={onSelectPermissionMode}
+              providerLabel={providerLabel}
+            />
+
             <PromptInputSubmit
               onClick={
-                isLoading
-                  ? onAbortSession
-                  : isRecording
-                    ? (e: MouseEvent<HTMLButtonElement>) => {
-                        e.preventDefault();
-                        voiceStop({ send: true });
-                      }
-                    : undefined
+                canQueueDraft
+                  ? (e: MouseEvent<HTMLButtonElement>) => {
+                      e.preventDefault();
+                      onSubmit(e);
+                    }
+                  : isLoading
+                    ? onAbortSession
+                    : isRecording
+                      ? (e: MouseEvent<HTMLButtonElement>) => {
+                          e.preventDefault();
+                          voiceStop({ send: true });
+                        }
+                      : undefined
               }
-              disabled={isLoading ? false : isRecording ? false : isTranscribing ? true : !input.trim()}
+              disabled={
+                isLoading
+                  ? false
+                  : isRecording
+                    ? false
+                    : isTranscribing
+                      ? true
+                      : !input.trim() && attachedFiles.length === 0
+              }
+              aria-label={submitAriaLabel}
+              title={submitAriaLabel}
               className="h-10 w-10 sm:h-10 sm:w-10"
             >
-              {isTranscribing ? <Loader2 className="h-4 w-4 animate-spin" /> : undefined}
+              {isTranscribing ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : canQueueDraft ? (
+                <ArrowUpIcon className="h-4 w-4" />
+              ) : undefined}
             </PromptInputSubmit>
           </div>
         </PromptInputFooter>
