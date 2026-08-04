@@ -316,15 +316,32 @@ function extractContextWindowFromModelUsage(modelUsage) {
 }
 
 /**
+ * @typedef {Object} ClaudeTokenBudget
+ * @property {number} used - Tokens occupying the context window right now
+ * @property {number} total - Resolved context window for the run
+ * @property {number} inputTokens
+ * @property {number} outputTokens
+ * @property {number} [cacheReadTokens]
+ * @property {number} [cacheCreationTokens]
+ * @property {number} [cacheTokens]
+ * @property {{ input: number, output: number }} breakdown
+ */
+
+/**
  * Extracts token usage from SDK messages.
  * Prefers per-step `message.usage` (Claude message payload), then falls back
  * to result-level usage/modelUsage for compatibility across SDK versions.
  * @param {Object} sdkMessage - SDK stream message
  * @param {string} [selectedModel] - Model chosen for this run (`sdkOptions.model`),
  *   which unlike `message.model` still carries any `[1m]` beta marker
- * @returns {Object|null} Token budget object or null
+ * @param {ClaudeTokenBudget|null} [previousBudget] - Last budget emitted for this
+ *   run, used to keep the per-request `used` when the terminal result message
+ *   only offers a turn-cumulative one
+ * @returns {ClaudeTokenBudget|null} Token budget object or null
+ *
+ * Exported for tests.
  */
-function extractTokenBudget(sdkMessage, selectedModel) {
+export function extractTokenBudget(sdkMessage, selectedModel, previousBudget) {
   if (!sdkMessage || typeof sdkMessage !== 'object') {
     return null;
   }
@@ -350,6 +367,22 @@ function extractTokenBudget(sdkMessage, selectedModel) {
       ? 1000000
       : contextWindow
   );
+
+  // The terminal `result` message reports `usage` summed across every API call
+  // in the turn — each tool-use round-trip re-sends the conversation, so a long
+  // turn totals far past the window and pins "% context left" at 0. It is the
+  // last message of the run, so that wrong value is what the client keeps until
+  // something re-reads the transcript, which is why leaving the tab and coming
+  // back "fixes" it. What actually occupies the window is the most recent
+  // request, already reported by the preceding assistant message. Keep that
+  // figure and take only the context window from the result, which is the one
+  // place the SDK reports the real per-model value.
+  if (sdkMessage.type === 'result' && previousBudget) {
+    return {
+      ...previousBudget,
+      total: resolveWindow(previousBudget.used),
+    };
+  }
 
   const messageUsage = sdkMessage.message?.usage || sdkMessage.usage;
   if (messageUsage && typeof messageUsage === 'object') {
@@ -686,6 +719,7 @@ async function queryClaudeSDK(command, options = {}, ws, context) {
 
     // Process streaming messages
     console.log('Starting async generator loop for session:', capturedSessionId || 'NEW');
+    let lastTokenBudget = null;
     for await (const message of queryInstance) {
       // Capture session ID from first message
       if (message.session_id && !capturedSessionId) {
@@ -722,8 +756,9 @@ async function queryClaudeSDK(command, options = {}, ws, context) {
       }
 
       // Extract and send token budget updates from assistant/result usage payloads
-      const tokenBudgetData = extractTokenBudget(message, sdkOptions.model);
+      const tokenBudgetData = extractTokenBudget(message, sdkOptions.model, lastTokenBudget);
       if (tokenBudgetData) {
+        lastTokenBudget = tokenBudgetData;
         ws.send(createNormalizedMessage({ kind: 'status', text: 'token_budget', tokenBudget: tokenBudgetData, sessionId: capturedSessionId || sessionId || null, provider: 'claude' }));
       }
     }
