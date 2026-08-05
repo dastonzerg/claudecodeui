@@ -310,7 +310,17 @@ export function useChatRealtimeHandlers({
 
         case 'status': {
           if (msg.text === 'token_budget' && msg.tokenBudget) {
-            setTokenBudget(msg.tokenBudget as Record<string, unknown>);
+            // One socket carries every session's run, and the token budget is
+            // per-session state, so an unfiltered write let a run in any other
+            // session repaint the open tab's indicator. The stale value then
+            // stuck, because nothing re-reads usage while a session sits idle —
+            // which is why switching tabs and back, and so refetching, or
+            // "fixed" it. The run registry rewrites sessionId to the app id on
+            // every outbound event, so this compares like for like; messages
+            // with no id fall back to the viewed session, as elsewhere here.
+            if (sid === activeViewSessionId) {
+              setTokenBudget(msg.tokenBudget as Record<string, unknown>);
+            }
           } else if (msg.text && sid) {
             onSessionProcessing?.(sid, {
               statusText: msg.text as string,
