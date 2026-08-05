@@ -88,6 +88,22 @@ test('a result with no preceding assistant budget still reports something', () =
   assert.equal(final?.used, 125_000);
 });
 
+test('an interrupted run reports nothing rather than zero', () => {
+  // Stopping a run before any assistant usage ends it with a terminal message
+  // whose usage is all zeros. Emitting that showed "0 tokens, 100% left".
+  assert.equal(extractTokenBudget(resultMessage(0, 0, 200_000), 'opus'), null);
+  assert.equal(extractTokenBudget(assistantMessage(0, 0), 'opus'), null);
+});
+
+test('stopping a run leaves the previous reading on screen', () => {
+  const live = extractTokenBudget(assistantMessage(440_000, 3_000), 'opus');
+
+  // The user hits stop; the run ends with a zero-usage terminal message.
+  const afterStop = extractTokenBudget(resultMessage(0, 0, 1_000_000), 'opus', live);
+
+  assert.equal(afterStop?.used, 443_000, 'must not reset to 0 tokens / 100% left');
+});
+
 test('subagent messages do not report usage for the main thread', () => {
   // A subagent's context is its own; 30k there says nothing about the parent.
   assert.equal(extractTokenBudget(subagentMessage(30_000, 500), 'opus'), null);

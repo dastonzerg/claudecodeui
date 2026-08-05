@@ -405,6 +405,15 @@ export function extractTokenBudget(sdkMessage, selectedModel, previousBudget) {
     const outputTokens = readNumber(messageUsage.output_tokens ?? messageUsage.outputTokens);
     const totalUsed = inputTokens + outputTokens;
 
+    // Every real request consumes input, so a zero total never describes one.
+    // Stopping a run before it produced any assistant usage ends it with a
+    // terminal message whose own usage is all zeros; publishing that replaced a
+    // correct reading with "0 tokens, 100% left" until the next response
+    // arrived. Report nothing and let the last real figure stand.
+    if (totalUsed <= 0) {
+      return null;
+    }
+
     return {
       used: totalUsed,
       total: resolveWindow(totalUsed),
@@ -435,6 +444,11 @@ export function extractTokenBudget(sdkMessage, selectedModel, previousBudget) {
   const inputTokens = readNumber(modelData.cumulativeInputTokens ?? modelData.inputTokens);
   const outputTokens = readNumber(modelData.cumulativeOutputTokens ?? modelData.outputTokens);
   const totalUsed = inputTokens + outputTokens;
+
+  // As above: a zero total is not a reading, so it must not overwrite one.
+  if (totalUsed <= 0) {
+    return null;
+  }
 
   return {
     used: totalUsed,
