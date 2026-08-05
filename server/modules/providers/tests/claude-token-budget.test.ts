@@ -21,6 +21,15 @@ const assistantMessage = (inputTokens: number, outputTokens: number) => ({
 });
 
 /**
+ * A subagent (Task) message reports usage for the subagent's own context
+ * window, tagged with `parent_tool_use_id`.
+ */
+const subagentMessage = (inputTokens: number, outputTokens: number) => ({
+  ...assistantMessage(inputTokens, outputTokens),
+  parent_tool_use_id: 'toolu_01SubagentTaskCall',
+});
+
+/**
  * The terminal result message sums usage across every API call in the turn, so
  * after a long tool-using turn it reads far higher than the live window.
  */
@@ -77,4 +86,26 @@ test('a result with no preceding assistant budget still reports something', () =
   const final = extractTokenBudget(resultMessage(120_000, 5_000, 200_000), 'opus');
 
   assert.equal(final?.used, 125_000);
+});
+
+test('subagent messages do not report usage for the main thread', () => {
+  // A subagent's context is its own; 30k there says nothing about the parent.
+  assert.equal(extractTokenBudget(subagentMessage(30_000, 500), 'opus'), null);
+});
+
+test('a subagent message does not become the value left on screen when idle', () => {
+  // Real ordering for a run that delegates: the main thread reaches 443k, a
+  // Task runs and reports its own small usage last, then the run ends. Before
+  // the parent_tool_use_id guard the subagent's 30.5k was the last budget
+  // emitted, so the indicator sat on it until something refetched.
+  let budget = extractTokenBudget(assistantMessage(440_000, 3_000), 'opus');
+  const mainThreadBudget = budget;
+
+  const subagent = extractTokenBudget(subagentMessage(30_000, 500), 'opus', budget);
+  assert.equal(subagent, null, 'subagent usage must not be emitted at all');
+  budget = subagent ?? budget;
+
+  const final = extractTokenBudget(resultMessage(5_200_000, 100_000, 1_000_000), 'opus', budget);
+  assert.equal(final?.used, mainThreadBudget?.used, 'must settle on the main thread figure');
+  assert.equal(final?.used, 443_000);
 });

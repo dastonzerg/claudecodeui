@@ -346,6 +346,17 @@ export function extractTokenBudget(sdkMessage, selectedModel, previousBudget) {
     return null;
   }
 
+  // A subagent (Task) runs in its own context window and reports its own usage,
+  // tagged with `parent_tool_use_id`. Those numbers describe a different
+  // conversation, so they must not repaint the session's indicator. A subagent
+  // message can also be the last one carrying usage before the run's result,
+  // which would leave that foreign figure on screen for as long as the session
+  // then sat idle. The transcript the reload path reads holds only main-thread
+  // messages, which is why switching tabs away and back appeared to fix it.
+  if (sdkMessage.parent_tool_use_id) {
+    return null;
+  }
+
   const explicitContextWindow = parseInt(process.env.CONTEXT_WINDOW, 10);
 
   // An assistant's `message.model` is the bare id (`claude-opus-5`) with any
