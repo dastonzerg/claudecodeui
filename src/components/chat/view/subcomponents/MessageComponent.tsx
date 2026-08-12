@@ -72,7 +72,28 @@ const MessageComponent = memo(({ message, prevMessage, createDiff, onFileOpen, s
     !message.isThinking;
 
 
-  const formattedTime = useMemo(() => new Date(message.timestamp).toLocaleTimeString(), [message.timestamp]);
+  // Messages from an earlier day carry a short date; today's stay time-only so
+  // an active conversation is not repeating the same date on every turn.
+  const formattedTime = useMemo(() => {
+    const timestamp = new Date(message.timestamp);
+    if (Number.isNaN(timestamp.getTime())) {
+      return '';
+    }
+
+    const time = timestamp.toLocaleTimeString();
+    const now = new Date();
+    const isToday =
+      timestamp.getFullYear() === now.getFullYear() &&
+      timestamp.getMonth() === now.getMonth() &&
+      timestamp.getDate() === now.getDate();
+
+    if (isToday) {
+      return time;
+    }
+
+    const date = timestamp.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+    return `${date}, ${time}`;
+  }, [message.timestamp]);
   const shouldHideThinkingMessage = Boolean(message.isThinking && !showThinking);
 
   if (shouldHideThinkingMessage) {
