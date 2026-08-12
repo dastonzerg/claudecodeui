@@ -357,8 +357,12 @@ export default function SidebarSessionItem({
         <div
           ref={editingContainerRef}
           className={cn(
-            'absolute right-2 top-1/2 flex -translate-y-1/2 transform items-center gap-1 transition-all duration-200',
-            isEditing ? 'opacity-100' : 'opacity-0 group-hover:opacity-100',
+            'absolute top-1/2 flex -translate-y-1/2 transform items-center gap-1 transition-all duration-200',
+            // While editing, span the row (clearing the provider logo on the
+            // left) so the field can use the full width instead of sitting in a
+            // narrow box over the name it is replacing. Hover actions stay
+            // right-aligned.
+            isEditing ? 'left-9 right-2 opacity-100' : 'right-2 opacity-0 group-hover:opacity-100',
           )}
         >
             {isEditing ? (
@@ -378,7 +382,7 @@ export default function SidebarSessionItem({
                     }
                   }}
                   onClick={(event) => event.stopPropagation()}
-                  className="w-32 rounded border border-border bg-background px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
+                  className="min-w-0 flex-1 rounded border border-border bg-background px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
                   autoFocus
                 />
                 <button
