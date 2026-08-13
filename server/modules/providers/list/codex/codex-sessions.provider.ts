@@ -957,6 +957,27 @@ export class CodexSessionsProvider implements IProviderSessions {
   ): Promise<FetchHistoryResult> {
     const { limit = null, offset = 0 } = options;
 
+    // Codex never deletes rollouts by age, but it does rewrite cold ones to
+    // `<name>.jsonl.zst`, and `codex delete` removes them outright — either way
+    // the indexed path stops existing while the session row survives. Reading
+    // on would hit ENOENT and render a blank chat that looks like a new one.
+    // App-created sessions keep `jsonl_path` NULL until a rollout is indexed,
+    // so a non-null path that is missing is unambiguous.
+    const rolloutPath = sessionsDb.getSessionById(sessionId)?.jsonl_path;
+    if (rolloutPath && !fsSync.existsSync(rolloutPath)) {
+      const compressedPath = `${rolloutPath}.zst`;
+      const reason = fsSync.existsSync(compressedPath)
+        ? `Codex compressed it to ${compressedPath}, which this app cannot read yet.`
+        : 'It was deleted (for example by `codex delete`), and a deleted rollout cannot be reloaded.';
+      const notice = createNormalizedMessage({
+        sessionId,
+        provider: PROVIDER,
+        kind: 'error',
+        content: `This conversation cannot be loaded: its rollout is no longer at ${rolloutPath}. ${reason}`,
+      });
+      return { messages: [notice], total: 1, hasMore: false, offset: 0, limit };
+    }
+
     let result: CodexHistoryResult;
     try {
       // Load full history first so `total` reflects frontend-normalized messages,

@@ -676,6 +676,25 @@ export class ClaudeSessionsProvider implements IProviderSessions {
     const { limit = null, offset = 0 } = options;
     const providerSessionId = options.providerSessionId ?? sessionId;
 
+    // Claude deletes transcripts older than `cleanupPeriodDays` (30 by default)
+    // while the session row survives, so an indexed path that no longer exists
+    // means the conversation is gone — not empty. Without this the reader hits
+    // ENOENT, returns zero messages, and the session renders as a brand-new
+    // chat. App-created sessions keep `jsonl_path` NULL until a transcript is
+    // indexed, so a non-null path that is missing is unambiguous.
+    const jsonlPath = sessionsDb.getSessionById(sessionId)?.jsonl_path;
+    if (jsonlPath && !fs.existsSync(jsonlPath)) {
+      const notice = createNormalizedMessage({
+        sessionId,
+        provider: PROVIDER,
+        kind: 'error',
+        content: `This conversation cannot be loaded: its transcript is no longer on disk (${jsonlPath}). `
+          + 'Claude Code deletes transcripts older than `cleanupPeriodDays` (30 days by default), '
+          + 'and a deleted transcript cannot be reloaded or resumed.',
+      });
+      return { messages: [notice], total: 1, hasMore: false, offset: 0, limit };
+    }
+
     let result: ClaudeHistoryResult;
     try {
       // Load full history first so `total` reflects frontend-normalized messages,
