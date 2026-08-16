@@ -110,7 +110,12 @@ const generateToken = (user) => {
       username: user.username
     },
     JWT_SECRET,
-    { expiresIn: '7d' }
+    // Single-user, self-hosted deployments reach the server over a private
+    // network rather than the public internet, so a week-long session buys
+    // little and costs a re-login every time the refresh window is missed.
+    // There is no revocation list; rotate `jwt_secret` in app_config to
+    // invalidate every issued token at once.
+    { expiresIn: '365d' }
   );
 };
 
