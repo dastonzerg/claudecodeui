@@ -29,6 +29,16 @@ export function getClaudeContextWindow(model: string | null | undefined): number
     return null;
   }
 
+  // Fable ships 1M natively — it is the maximum and the default, with no
+  // smaller variant to select, so the window does not depend on the beta
+  // suffix. That matters because the suffix does not survive: the picker
+  // offers `claude-fable-5[1m]`, but transcripts record the bare
+  // `claude-fable-5` (and the SDK reports `fable`), which the check below
+  // would read as 200k and understate every Fable session by 5x.
+  if (getClaudeModelFamily(normalized) === 'fable') {
+    return 1_000_000;
+  }
+
   // The 1M context beta is opted into per model (e.g. `opus[1m]`,
   // `claude-opus-4-8[1m]`, `sonnet[1m]`); everything else is 200k.
   if (normalized.includes('1m')) {
