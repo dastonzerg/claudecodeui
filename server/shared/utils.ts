@@ -1064,6 +1064,13 @@ type BuildProviderCommandOptions = {
   resumeSessionId?: string | null;
   initialCommand?: string | null;
   platform: CommandPlatform;
+  /**
+   * Adds the provider's skip-permissions flag. Off by default: the in-app
+   * shell inherits the terminal's own settings, and only the copy-to-terminal
+   * commands opt in, where the user has already accepted that posture by
+   * running the session under cloudcli.
+   */
+  skipPermissions?: boolean;
 };
 
 function quotePowerShellLiteral(value: string): string {
@@ -1083,6 +1090,7 @@ export function buildProviderShellCommand({
   resumeSessionId,
   initialCommand,
   platform,
+  skipPermissions = false,
 }: BuildProviderCommandOptions): string {
   if (provider === 'cursor') {
     return resumeSessionId
@@ -1108,14 +1116,19 @@ export function buildProviderShellCommand({
     return initialCommand || 'opencode';
   }
 
-  const command = initialCommand || 'claude';
+  // Only applied to the `claude` invocations built below; an `initialCommand`
+  // is caller-supplied and must not be rewritten.
+  const claudeFlags = skipPermissions ? ' --dangerously-skip-permissions' : '';
+  const command = initialCommand || `claude${claudeFlags}`;
   if (!resumeSessionId) {
     return command;
   }
 
+  // The fallback carries the same flag: it is the same session continuing
+  // after a resume miss, so it should not prompt differently.
   return platform === 'win32'
-    ? `claude --resume "${resumeSessionId}"; if ($LASTEXITCODE -ne 0) { claude }`
-    : `claude --resume "${resumeSessionId}" || claude`;
+    ? `claude --resume "${resumeSessionId}"${claudeFlags}; if ($LASTEXITCODE -ne 0) { claude${claudeFlags} }`
+    : `claude --resume "${resumeSessionId}"${claudeFlags} || claude${claudeFlags}`;
 }
 
 export function scopeCommandToProject(

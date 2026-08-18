@@ -438,6 +438,10 @@ export const sessionsService = {
         provider,
         resumeSessionId: resume ? providerSessionId : null,
         platform,
+        // These commands are copied into the user's own terminal to carry on a
+        // session cloudcli already runs with permissions bypassed; prompting
+        // only at the handover would be surprising rather than safer.
+        skipPermissions: true,
       });
       return scopeCommandToProject(projectPath, providerCommand, platform);
     };
