@@ -608,7 +608,43 @@ async function queryClaudeSDK(command, options = {}, ws, context) {
     // async generator cannot be replayed once consumed.
     const createPrompt = () => buildPromptPayload(command, options.images, options.files, options.cwd);
 
+    // cloudcli spawns a fresh CLI process per turn and tears it down once the
+    // turn's `result` arrives. A background subagent lives inside that process,
+    // so it is killed partway through its work — the parent turn has already
+    // ended, and the follow-up turn that would deliver its result never runs.
+    // Background is the SDK default, so every agent walks into this unless it
+    // is stopped here rather than by instructions the model may not have.
+    //
+    // PreToolUse runs before the permission-mode check, so this still applies
+    // under `auto`/`bypassPermissions`, where `canUseTool` below is skipped.
+    // `Task` is the historical name for the same tool.
+    const SUBAGENT_TOOL_NAMES = /^(Agent|Task)$/;
     sdkOptions.hooks = {
+      PreToolUse: [{
+        matcher: 'Agent|Task',
+        hooks: [async (input) => {
+          const toolInput = input?.tool_input;
+          if (
+            !SUBAGENT_TOOL_NAMES.test(String(input?.tool_name ?? ''))
+            || !toolInput
+            || typeof toolInput !== 'object'
+            || toolInput.run_in_background !== true
+          ) {
+            return {};
+          }
+
+          return {
+            hookSpecificOutput: {
+              hookEventName: 'PreToolUse',
+              updatedInput: { ...toolInput, run_in_background: false },
+              additionalContext:
+                'Switched to a foreground subagent: cloudcli replaces the CLI process at the '
+                + 'end of each turn, so background subagents are killed before they finish. '
+                + 'Launch independent subagents in a single message to keep them concurrent.',
+            },
+          };
+        }],
+      }],
       Notification: [{
         matcher: '',
         hooks: [async (input) => {
