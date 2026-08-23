@@ -5,6 +5,10 @@ export { appConfigDb } from '@/modules/database/repositories/app-config.js';
 export { credentialsDb } from '@/modules/database/repositories/credentials.js';
 export { githubTokensDb } from '@/modules/database/repositories/github-tokens.js';
 export { messageBookmarksDb } from '@/modules/database/repositories/message-bookmarks.db.js';
+export type {
+  CreateMessageBookmarkInput,
+  MessageBookmarkRow,
+} from '@/modules/database/repositories/message-bookmarks.db.js';
 export { notificationChannelEndpointsDb } from '@/modules/database/repositories/notification-channel-endpoints.js';
 export { notificationPreferencesDb } from '@/modules/database/repositories/notification-preferences.js';
 // projectsDb: used by Projects, Worktrees, Git, WebSocket, and notification modules to persist and resolve project records.

@@ -29,6 +29,7 @@ import {
 import { taskmasterRoutes } from './modules/taskmaster/index.js';
 import { commandsRoutes } from './modules/commands/index.js';
 import { settingsRoutes } from './modules/settings/index.js';
+import { bookmarksRoutes } from './modules/bookmarks/index.js';
 import { createSystemModule } from './modules/system/index.js';
 import { createAgentModule } from './modules/agent/index.js';
 import projectModuleRoutes from './modules/projects/projects.routes.js';
@@ -172,6 +173,9 @@ app.use('/api/commands', authenticateToken, commandsRoutes);
 
 // Settings API Routes (protected)
 app.use('/api/settings', authenticateToken, settingsRoutes);
+
+// Bookmarks API Routes (protected)
+app.use('/api/bookmarks', authenticateToken, bookmarksRoutes);
 
 app.use('/api/system', authenticateToken, systemRoutes);
 
