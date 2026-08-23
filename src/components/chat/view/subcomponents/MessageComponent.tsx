@@ -74,7 +74,9 @@ const MessageComponent = memo(({ message, prevMessage, createDiff, onFileOpen, s
   const isPinnable = (message.type === 'user' || message.type === 'assistant')
     && typeof message.id === 'string'
     && String(message.content || '').trim().length > 0
-    && !message.isThinking;
+    && !message.isThinking
+    && !message.isStreaming
+    && Number.isFinite(new Date(message.timestamp).getTime());
 
 
   // Messages from an earlier day carry a short date; today's stay time-only so

@@ -11,6 +11,8 @@ interface UseBookmarksOptions {
   provider: string;
   projectPath: string | null;
   messages: ChatMessage[];
+  /** While true, resolution skips the O(n) content fallback scan (see below). */
+  isStreaming?: boolean;
 }
 
 export function useBookmarks({
@@ -18,6 +20,7 @@ export function useBookmarks({
   provider,
   projectPath,
   messages,
+  isStreaming = false,
 }: UseBookmarksOptions): BookmarkContextValue {
   const [bookmarks, setBookmarks] = useState<MessageBookmark[]>([]);
   // Bookmarks already self-healed this mount, so a resolution pass that runs
@@ -49,14 +52,21 @@ export function useBookmarks({
   const resolutions = useMemo(() => {
     const byBookmarkId = new Map<number, { messageId: string; viaFallback: boolean }>();
     for (const bookmark of bookmarks) {
-      const resolved = resolveBookmarkTarget(bookmark, messages);
+      // A session switch can render the new session's messages before the
+      // fetch for its bookmarks lands, leaving stale bookmarks from the
+      // previous session in state. Resolving (and self-healing) those against
+      // the wrong session's messages would permanently corrupt their anchor.
+      if (bookmark.sessionId !== sessionId) {
+        continue;
+      }
+      const resolved = resolveBookmarkTarget(bookmark, messages, { skipFallback: isStreaming });
       const resolvedId = resolved?.message.id;
       if (resolved && typeof resolvedId === 'string') {
         byBookmarkId.set(bookmark.id, { messageId: resolvedId, viaFallback: resolved.viaFallback });
       }
     }
     return byBookmarkId;
-  }, [bookmarks, messages]);
+  }, [bookmarks, messages, sessionId, isStreaming]);
 
   // Self-heal: a bookmark found by content fallback gets its stored id
   // rewritten, so step 2 of resolution runs at most once per bookmark.

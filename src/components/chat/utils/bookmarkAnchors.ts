@@ -34,12 +34,20 @@ function messageTime(message: ChatMessage): number {
 export function resolveBookmarkTarget(
   bookmark: MessageBookmark,
   messages: ChatMessage[],
+  options?: { skipFallback?: boolean },
 ): ResolvedBookmark | null {
   if (bookmark.messageId) {
     const exact = messages.find((message) => message.id === bookmark.messageId);
     if (exact) {
       return { message: exact, viaFallback: false };
     }
+  }
+
+  // The content fallback below is an O(n) scan doing a lowercase + includes
+  // per message. It re-runs on every stream delta via the resolution memo, so
+  // callers skip it while a message is actively streaming.
+  if (options?.skipFallback) {
+    return null;
   }
 
   const targetTime = new Date(bookmark.messageTimestamp).getTime();
@@ -52,7 +60,11 @@ export function resolveBookmarkTarget(
   let bestDifference = Number.POSITIVE_INFINITY;
 
   for (const message of messages) {
-    if (message.type !== bookmark.messageType) {
+    // A thinking/reasoning block shares type 'assistant' with the final text
+    // response, and can share its timestamp too. Excluding it keeps the
+    // fallback from resolving onto a block that renders as nothing when
+    // "show thinking" is off, which would make the bookmark unresolvable.
+    if (message.type !== bookmark.messageType || message.isThinking) {
       continue;
     }
 

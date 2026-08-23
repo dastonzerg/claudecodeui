@@ -5,8 +5,8 @@ import type { MessageBookmark } from '../types/bookmarks';
 
 import { makeSnippet, resolveBookmarkTarget } from './bookmarkAnchors';
 
-function message(id: string, type: string, timestamp: string, content: string): ChatMessage {
-  return { id, type, timestamp, content };
+function message(id: string, type: string, timestamp: string, content: string, isThinking?: boolean): ChatMessage {
+  return { id, type, timestamp, content, isThinking };
 }
 
 const bookmark: MessageBookmark = {
@@ -75,5 +75,28 @@ describe('resolveBookmarkTarget', () => {
     const messages = [message('reloaded-a', 'user', '2026-08-22T10:00:00.000Z', 'unrelated')];
 
     expect(resolveBookmarkTarget(bookmark, messages)).toBeNull();
+  });
+
+  it('skips a thinking message even when it ties on timestamp and matches the snippet', () => {
+    const assistantBookmark: MessageBookmark = {
+      ...bookmark,
+      messageId: 'm-2',
+      messageType: 'assistant',
+    };
+    const messages = [
+      message('reloaded-thinking', 'assistant', '2026-08-22T10:00:00.000Z', 'the pinned sentence and more', true),
+      message('reloaded-final', 'assistant', '2026-08-22T10:00:00.000Z', 'the pinned sentence and more'),
+    ];
+
+    const resolved = resolveBookmarkTarget(assistantBookmark, messages);
+    expect(resolved).toEqual({ message: messages[1], viaFallback: true });
+  });
+
+  it('skips the content fallback when skipFallback is set, even with an id miss', () => {
+    const messages = [
+      message('reloaded-b', 'user', '2026-08-22T10:00:02.000Z', 'the pinned sentence and more'),
+    ];
+
+    expect(resolveBookmarkTarget(bookmark, messages, { skipFallback: true })).toBeNull();
   });
 });

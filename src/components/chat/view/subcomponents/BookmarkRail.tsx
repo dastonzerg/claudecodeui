@@ -126,7 +126,7 @@ function BookmarkRail({ scrollContainerRef, contentRef, messagesRevision, onLoad
   return (
     <div
       className="pointer-events-none absolute inset-y-0 right-0 z-20 w-4"
-      aria-label={t('bookmarks.railLabel', 'Bookmarks')}
+      aria-label={t('bookmarks.railLabel', { defaultValue: 'Bookmarks' })}
     >
       {resolved.map(({ bookmark, topPercent }) => (
         <button

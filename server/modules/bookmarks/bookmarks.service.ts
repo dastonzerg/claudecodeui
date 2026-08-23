@@ -6,6 +6,7 @@ import type {
 } from '@/modules/database/index.js';
 
 const SNIPPET_MAX_LENGTH = 80;
+const LABEL_MAX_LENGTH = 80;
 const PINNABLE_MESSAGE_TYPES = new Set(['user', 'assistant']);
 
 type BookmarksRepository = {
@@ -82,7 +83,7 @@ export function createBookmarksService(deps: { bookmarks: BookmarksRepository })
 
     rename(userId: number, id: number, label: unknown): MessageBookmarkRow {
       const normalized = typeof label === 'string' && label.trim()
-        ? label.trim().slice(0, SNIPPET_MAX_LENGTH)
+        ? label.trim().slice(0, LABEL_MAX_LENGTH)
         : null;
       return bookmarks.rename(userId, id, normalized) ?? notFound();
     },

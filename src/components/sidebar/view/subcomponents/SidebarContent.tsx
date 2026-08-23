@@ -701,7 +701,7 @@ export default function SidebarContent({
             </div>
           )
         ) : searchMode === 'bookmarks' ? (
-          <SidebarBookmarkList onBookmarkClick={onBookmarkClick} />
+          <SidebarBookmarkList onBookmarkClick={onBookmarkClick} searchFilter={searchFilter} />
         ) : (
           <SidebarProjectList {...projectListProps} />
         )}

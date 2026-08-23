@@ -146,6 +146,7 @@ function ChatInterface({
     // only set on some project shapes (see src/types/app.ts:80-90).
     projectPath: selectedProject?.fullPath ?? selectedProject?.path ?? null,
     messages: chatMessages,
+    isStreaming: isProcessing,
   });
 
   // Brand-new conversation: the composer allocated a stable session id via
