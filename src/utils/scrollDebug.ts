@@ -51,6 +51,10 @@ export function snapshotScroll(container: HTMLElement | null): ScrollSnapshot | 
   };
 }
 
+/** Kept in memory so the whole trace can be dumped as one copyable blob. */
+const MAX_BUFFERED_LINES = 2000;
+const buffer: string[] = [];
+
 /**
  * `event` names the site that ran, `data` carries whatever that site decided
  * on. Timestamps are ms since page load so the ordering across effects,
@@ -59,10 +63,32 @@ export function snapshotScroll(container: HTMLElement | null): ScrollSnapshot | 
 export function logScroll(event: string, data?: Record<string, unknown>): void {
   if (!isEnabled()) return;
   const at = Math.round(performance.now());
-  // eslint-disable-next-line no-console
-  console.log(`[chat-scroll +${at}ms] ${event}`, data ?? {});
+  const line = `+${at}ms ${event} ${JSON.stringify(data ?? {})}`;
+  buffer.push(line);
+  if (buffer.length > MAX_BUFFERED_LINES) buffer.shift();
+   
+  console.log(`[chat-scroll] ${line}`);
 }
 
 export function isScrollDebugEnabled(): boolean {
   return isEnabled();
+}
+
+// Console helpers. Reading a jump out of a live console is painful — these let
+// the whole trace be copied in one go, and cleared right before a repro so the
+// dump contains only the run that mattered.
+if (typeof window !== 'undefined') {
+  const w = window as unknown as Record<string, unknown>;
+  w.dumpChatScroll = (): string => {
+    const text = buffer.join('\n');
+    void navigator.clipboard?.writeText(text).catch(() => { /* fall back to the return value */ });
+     
+    console.log(`[chat-scroll] ${buffer.length} lines copied to clipboard`);
+    return text;
+  };
+  w.clearChatScroll = (): void => {
+    buffer.length = 0;
+     
+    console.log('[chat-scroll] buffer cleared');
+  };
 }
