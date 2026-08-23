@@ -73,7 +73,8 @@ const MessageComponent = memo(({ message, prevMessage, createDiff, onFileOpen, s
     !message.isThinking;
   const isPinnable = (message.type === 'user' || message.type === 'assistant')
     && typeof message.id === 'string'
-    && String(message.content || '').trim().length > 0;
+    && String(message.content || '').trim().length > 0
+    && !message.isThinking;
 
 
   // Messages from an earlier day carry a short date; today's stay time-only so

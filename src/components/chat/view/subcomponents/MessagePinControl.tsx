@@ -23,8 +23,8 @@ const MessagePinControl = ({ message }: { message: ChatMessage }) => {
     <button
       type="button"
       aria-pressed={isPinned}
-      title={isPinned ? t('bookmarks.unpin', 'Remove bookmark') : t('bookmarks.pin', 'Bookmark this message')}
-      aria-label={isPinned ? t('bookmarks.unpin', 'Remove bookmark') : t('bookmarks.pin', 'Bookmark this message')}
+      title={isPinned ? t('bookmarks.unpin', { defaultValue: 'Remove bookmark' }) : t('bookmarks.pin', { defaultValue: 'Bookmark this message' })}
+      aria-label={isPinned ? t('bookmarks.unpin', { defaultValue: 'Remove bookmark' }) : t('bookmarks.pin', { defaultValue: 'Bookmark this message' })}
       onClick={() => {
         if (bookmark) {
           bookmarkState.unpin(bookmark.id);
