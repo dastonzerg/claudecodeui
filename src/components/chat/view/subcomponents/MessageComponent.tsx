@@ -17,6 +17,7 @@ import ChatMessageImages from './ChatMessageImages';
 import ChatMessageFiles from './ChatMessageFiles';
 import { Markdown } from './Markdown';
 import MessageCopyControl from './MessageCopyControl';
+import MessagePinControl from './MessagePinControl';
 import MessageSpeakControl from './MessageSpeakControl';
 
 type DiffLine = {
@@ -70,6 +71,9 @@ const MessageComponent = memo(({ message, prevMessage, createDiff, onFileOpen, s
     assistantCopyContent.trim().length > 0 &&
     !isCommandOrFileEditToolResponse &&
     !message.isThinking;
+  const isPinnable = (message.type === 'user' || message.type === 'assistant')
+    && typeof message.id === 'string'
+    && String(message.content || '').trim().length > 0;
 
 
   // Messages from an earlier day carry a short date; today's stay time-only so
@@ -104,6 +108,7 @@ const MessageComponent = memo(({ message, prevMessage, createDiff, onFileOpen, s
     <div
       ref={messageRef}
       data-message-timestamp={message.timestamp || undefined}
+      data-bookmark-id={isPinnable ? String(message.id) : undefined}
       className={`chat-message ${message.type} ${isGrouped ? 'grouped' : ''} ${message.type === 'user' ? 'flex justify-end px-3 sm:px-0' : 'px-3 sm:px-0'}`}
     >
       {message.type === 'user' ? (
@@ -133,6 +138,7 @@ const MessageComponent = memo(({ message, prevMessage, createDiff, onFileOpen, s
                   {shouldShowUserCopyControl && (
                     <MessageCopyControl content={userCopyContent} messageType="user" />
                   )}
+                  {isPinnable && <MessagePinControl message={message} />}
                   <span>{formattedTime}</span>
                 </div>
               </div>
@@ -402,7 +408,7 @@ const MessageComponent = memo(({ message, prevMessage, createDiff, onFileOpen, s
               </div>
             )}
 
-            {(shouldShowAssistantCopyControl || !isGrouped) && (
+            {(shouldShowAssistantCopyControl || isPinnable || !isGrouped) && (
               <div className="mt-1 flex w-full items-center gap-2 text-[11px] text-gray-400 dark:text-gray-500">
                 {shouldShowAssistantCopyControl && (
                   <MessageCopyControl content={assistantCopyContent} messageType="assistant" />
@@ -410,6 +416,7 @@ const MessageComponent = memo(({ message, prevMessage, createDiff, onFileOpen, s
                 {shouldShowAssistantCopyControl && (
                   <MessageSpeakControl content={assistantCopyContent} />
                 )}
+                {isPinnable && <MessagePinControl message={message} />}
                 {!isGrouped && <span>{formattedTime}</span>}
               </div>
             )}
