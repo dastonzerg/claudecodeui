@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next';
-import { memo, useCallback, useMemo } from 'react';
+import { memo, useCallback, useMemo, useRef } from 'react';
 import type { Dispatch, RefObject, SetStateAction } from 'react';
 
 import type { ChatMessage } from '../../types/types';
@@ -17,6 +17,7 @@ import ProviderSelectionEmptyState from './ProviderSelectionEmptyState';
 import ToolGroupContainer from './ToolGroupContainer';
 import LoadAllMessagesOverlay from './LoadAllMessagesOverlay';
 import ChatExportMenu from './ChatExportMenu';
+import BookmarkRail from './BookmarkRail';
 
 interface ChatMessagesPaneProps {
   scrollContainerRef: RefObject<HTMLDivElement>;
@@ -116,6 +117,7 @@ function ChatMessagesPane({
   selectedProject,
 }: ChatMessagesPaneProps) {
   const { t } = useTranslation('chat');
+  const contentRef = useRef<HTMLDivElement>(null);
   const groupedVisibleMessages = useMemo(
     () => groupConsecutiveTools(visibleMessages, Boolean(showThinking)),
     [visibleMessages, showThinking],
@@ -157,22 +159,23 @@ function ChatMessagesPane({
   );
 
   return (
-    <div
-      ref={scrollContainerRef}
-      onWheel={onWheel}
-      onTouchMove={onTouchMove}
-      className={`chat-messages-pane relative min-h-0 flex-1 overflow-y-auto overflow-x-hidden pt-3 sm:pt-4 ${
-        hasActivityIndicator ? 'pb-12 sm:pb-14' : 'pb-3 sm:pb-4'
-      }`}
-    >
+    <div className="relative flex min-h-0 flex-1">
+      <div
+        ref={scrollContainerRef}
+        onWheel={onWheel}
+        onTouchMove={onTouchMove}
+        className={`chat-messages-pane relative min-h-0 flex-1 overflow-y-auto overflow-x-hidden pt-3 sm:pt-4 ${
+          hasActivityIndicator ? 'pb-12 sm:pb-14' : 'pb-3 sm:pb-4'
+        }`}
+      >
       {chatMessages.length > 0 && (
-        <div className="pointer-events-none sticky right-4 top-3 z-10 mb-2 flex justify-end sm:px-4">
+        <div className="pointer-events-none sticky right-7 top-3 z-10 mb-2 flex justify-end sm:px-4">
           <div className="pointer-events-auto">
             <ChatExportMenu messages={chatMessages} sessionTitle={selectedSession?.title} />
           </div>
         </div>
       )}
-      <div className="mx-auto w-full max-w-[54.25rem] space-y-3 px-4 sm:space-y-4">
+      <div ref={contentRef} className="mx-auto w-full max-w-[54.25rem] space-y-3 px-4 sm:space-y-4">
       {(isLoadingSessionMessages || isProcessing) && chatMessages.length === 0 ? (
         <div className="mt-8 text-center text-gray-500 dark:text-gray-400">
           <div className="flex items-center justify-center space-x-2">
@@ -313,6 +316,13 @@ function ChatMessagesPane({
         </>
       )}
       </div>
+      </div>
+      <BookmarkRail
+        scrollContainerRef={scrollContainerRef}
+        contentRef={contentRef}
+        messagesRevision={groupedVisibleMessages.length}
+        onLoadAllMessages={loadAllMessages}
+      />
     </div>
   );
 }
