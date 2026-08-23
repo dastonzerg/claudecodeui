@@ -138,6 +138,28 @@ CREATE TABLE IF NOT EXISTS app_config (
 );
 `;
 
+export const MESSAGE_BOOKMARKS_TABLE_SCHEMA_SQL = `
+CREATE TABLE IF NOT EXISTS message_bookmarks (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    session_id TEXT NOT NULL,
+    provider TEXT NOT NULL,
+    -- Denormalized so the cross-session list can render a project label
+    -- without joining sessions, which may not have a row yet.
+    project_path TEXT,
+    -- Provider message id. NULL or stale for a message pinned mid-stream;
+    -- rewritten by the client once fallback resolution finds the real id.
+    message_id TEXT,
+    message_timestamp TEXT NOT NULL,
+    snippet TEXT NOT NULL,
+    label TEXT,
+    message_type TEXT NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(user_id, session_id, message_id),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+`;
+
 export const INIT_SCHEMA_SQL = `
 -- Initialize authentication database
 PRAGMA foreign_keys = ON;
@@ -181,4 +203,6 @@ CREATE INDEX IF NOT EXISTS idx_session_ids_lookup ON sessions(session_id);
 ${LAST_SCANNED_AT_SQL}
 
 ${APP_CONFIG_TABLE_SCHEMA_SQL}
+${MESSAGE_BOOKMARKS_TABLE_SCHEMA_SQL}
+CREATE INDEX IF NOT EXISTS idx_message_bookmarks_user_session ON message_bookmarks(user_id, session_id);
 `;
