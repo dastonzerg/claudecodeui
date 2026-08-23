@@ -22,6 +22,8 @@ interface MarkerPosition {
 
 const HIGHLIGHT_CLASS = 'search-highlight-flash';
 const HIGHLIGHT_DURATION_MS = 4000;
+/** Breathing room above a jumped-to message, clear of the sticky export menu. */
+const JUMP_TOP_PADDING_PX = 12;
 
 function BookmarkRail({ scrollContainerRef, contentRef, messagesRevision, onLoadAllMessages }: BookmarkRailProps) {
   const { t } = useTranslation('chat');
@@ -88,7 +90,16 @@ function BookmarkRail({ scrollContainerRef, contentRef, messagesRevision, onLoad
       return false;
     }
 
-    element.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    // Land on the message's first line rather than its middle, which is what a
+    // reader expects from a bookmark. `scrollIntoView({ block: 'start' })` would
+    // tuck that line under the sticky export menu, so scroll the container
+    // directly: `offsetTop` is measured against this same container (it is the
+    // bubbles' offsetParent), which is the coordinate space the marker
+    // positions above already use.
+    container.scrollTo({
+      top: Math.max(0, element.offsetTop - JUMP_TOP_PADDING_PX),
+      behavior: 'smooth',
+    });
     element.classList.add(HIGHLIGHT_CLASS);
     setTimeout(() => element.classList.remove(HIGHLIGHT_CLASS), HIGHLIGHT_DURATION_MS);
     return true;

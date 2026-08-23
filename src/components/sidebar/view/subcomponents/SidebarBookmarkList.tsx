@@ -163,7 +163,10 @@ function SidebarBookmarkList({ onBookmarkClick, searchFilter }: SidebarBookmarkL
           )}
 
           {editingId !== bookmark.id && (
-            <div className="flex flex-shrink-0 items-center gap-0.5 opacity-0 group-hover:opacity-100">
+            /* Always visible, not hover-revealed: hover does not exist on touch,
+               and the first tap would land on the row button and navigate away
+               instead. Same reasoning as the pin control on chat bubbles. */
+            <div className="flex flex-shrink-0 items-center gap-0.5 opacity-60 transition-opacity hover:opacity-100">
               <button
                 type="button"
                 onClick={() => startEditing(bookmark)}

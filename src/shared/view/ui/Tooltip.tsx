@@ -10,6 +10,13 @@ type TooltipProps = {
   content?: ReactNode;
   position?: TooltipPosition;
   className?: string;
+  /**
+   * Classes for the wrapper around `children`, not the tooltip bubble
+   * (`className` styles the bubble). The wrapper is what a flex or grid parent
+   * lays out, so callers that need the trigger to flex or shrink have to reach
+   * it here — styling the child alone has no effect on the wrapper's size.
+   */
+  triggerClassName?: string;
   delay?: number;
 };
 
@@ -33,6 +40,7 @@ function Tooltip({
   content,
   position = 'top',
   className = '',
+  triggerClassName = '',
   delay = 350,
 }: TooltipProps) {
   const [isVisible, setIsVisible] = useState(false);
@@ -169,7 +177,7 @@ function Tooltip({
   return (
     <div
       ref={containerRef}
-      className="relative inline-block"
+      className={cn('relative inline-block', triggerClassName)}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
       onTouchStart={handleTouchStart}

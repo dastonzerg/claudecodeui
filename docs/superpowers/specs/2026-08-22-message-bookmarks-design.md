@@ -34,10 +34,18 @@ History messages carry a stable id derived from the provider JSONL `uuid`
 the equivalent in the Codex provider). That id is regenerated identically every
 time the transcript is re-read from disk, so it is a durable anchor.
 
-A message pinned **while it is streaming live** is different: its id comes from
-`generateMessageId` (`server/shared/utils.ts:327`), which is a fresh random
-UUID. After a reload the same message returns from the JSONL with a different
-id, and an id-only bookmark would dangle.
+A message pinned **while it is streaming live** is different. Its client-side id
+is `'__streaming_' + sessionId` (`useSessionStore.updateStreaming`) — not a
+random UUID, but a constant that every stream in the session reuses until
+`finalizeStreaming` swaps in a unique one. After a reload the message returns
+from the JSONL with a different id again, so an id-only bookmark would dangle.
+
+Because that id is shared, two mid-stream pins in one session would collide on
+the server's `findByMessageId` dedupe and mark the wrong message pinned.
+Pinning is therefore disabled while a message is still streaming (`isPinnable`
+excludes `message.isStreaming`); the pin appears once the response completes.
+The fallback below still earns its keep, because a message pinned just after
+streaming ends carries a realtime id until the server echo replaces it.
 
 Additionally, `normalizedToChatMessages` currently drops `msg.id` when it builds
 `sharedMetadata` (`src/components/chat/hooks/useChatMessages.ts:83-91`), so the

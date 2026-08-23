@@ -147,40 +147,46 @@ export default function SidebarHeader({
           <div className="mt-2.5 space-y-2">
             {/* Search mode toggle */}
             <div className="flex rounded-lg bg-muted/50 p-0.5">
-              <button
-                onClick={() => onSearchModeChange('projects')}
-                aria-pressed={searchMode === 'projects'}
-                className={cn(
-                  "flex-1 flex items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-normal transition-all",
-                  searchMode === 'projects'
-                    ? "bg-background shadow-sm text-foreground"
-                    : "text-muted-foreground hover:text-foreground"
-                )}
-              >
-                <Folder className="h-3 w-3" />
-                {t('search.modeProjects')}
-              </button>
-              <button
-                onClick={() => onSearchModeChange('conversations')}
-                aria-pressed={searchMode === 'conversations'}
-                className={cn(
-                  "flex-1 flex items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-normal transition-all",
-                  searchMode === 'conversations'
-                    ? "bg-background shadow-sm text-foreground"
-                    : "text-muted-foreground hover:text-foreground"
-                )}
-              >
-                <MessageSquare className="h-3 w-3" />
-                {t('search.modeConversations')}
-              </button>
-              <Tooltip content={t('search.runningTooltip', 'Running sessions')} position="top">
+              <Tooltip content={t('search.modeProjects')} position="top" triggerClassName="min-w-0 flex-1">
+                <button
+                  onClick={() => onSearchModeChange('projects')}
+                  aria-pressed={searchMode === 'projects'}
+                  aria-label={t('search.modeProjects')}
+                  title={t('search.modeProjects')}
+                  className={cn(
+                    "w-full flex items-center justify-center rounded-md px-2 py-1.5 text-xs font-normal transition-all",
+                    searchMode === 'projects'
+                      ? "bg-background shadow-sm text-foreground"
+                      : "text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  <Folder className="h-3 w-3" />
+                </button>
+              </Tooltip>
+              <Tooltip content={t('search.modeConversations')} position="top" triggerClassName="min-w-0 flex-1">
+                <button
+                  onClick={() => onSearchModeChange('conversations')}
+                  aria-pressed={searchMode === 'conversations'}
+                  aria-label={t('search.modeConversations')}
+                  title={t('search.modeConversations')}
+                  className={cn(
+                    "w-full flex items-center justify-center rounded-md px-2 py-1.5 text-xs font-normal transition-all",
+                    searchMode === 'conversations'
+                      ? "bg-background shadow-sm text-foreground"
+                      : "text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  <MessageSquare className="h-3 w-3" />
+                </button>
+              </Tooltip>
+              <Tooltip content={t('search.runningTooltip', 'Running sessions')} position="top" triggerClassName="min-w-0 flex-1">
                 <button
                   onClick={() => onSearchModeChange('running')}
                   aria-pressed={searchMode === 'running'}
                   aria-label={t('search.runningTooltip', 'Running sessions')}
                   title={t('search.runningTooltip', 'Running sessions')}
                   className={cn(
-                    "flex items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-normal transition-all",
+                    "w-full flex items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-normal transition-all",
                     searchMode === 'running'
                       ? "bg-background shadow-sm text-foreground ring-1 ring-emerald-500/15"
                       : "text-muted-foreground hover:text-foreground"
@@ -196,14 +202,14 @@ export default function SidebarHeader({
                   </span>
                 </button>
               </Tooltip>
-              <Tooltip content={t('search.unreadTooltip', 'Unread sessions')} position="top">
+              <Tooltip content={t('search.unreadTooltip', 'Unread sessions')} position="top" triggerClassName="min-w-0 flex-1">
                 <button
                   onClick={() => onSearchModeChange('unread')}
                   aria-pressed={searchMode === 'unread'}
                   aria-label={t('search.unreadTooltip', 'Unread sessions')}
                   title={t('search.unreadTooltip', 'Unread sessions')}
                   className={cn(
-                    "flex items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-normal transition-all",
+                    "w-full flex items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-normal transition-all",
                     searchMode === 'unread'
                       ? "bg-background shadow-sm text-foreground ring-1 ring-sky-500/15"
                       : "text-muted-foreground hover:text-foreground"
@@ -219,14 +225,14 @@ export default function SidebarHeader({
                   </span>
                 </button>
               </Tooltip>
-              <Tooltip content={t('search.archiveOnlyTooltip', 'Archive only')} position="top">
+              <Tooltip content={t('search.archiveOnlyTooltip', 'Archive only')} position="top" triggerClassName="min-w-0 flex-1">
                 <button
                   onClick={() => onSearchModeChange('archived')}
                   aria-pressed={searchMode === 'archived'}
                   aria-label={t('search.archiveOnlyTooltip', 'Archive only')}
                   title={t('search.archiveOnlyTooltip', 'Archive only')}
                   className={cn(
-                    "flex items-center justify-center rounded-md px-2.5 py-1.5 text-xs font-normal transition-all",
+                    "w-full flex items-center justify-center rounded-md px-2 py-1.5 text-xs font-normal transition-all",
                     searchMode === 'archived'
                       ? "bg-background shadow-sm text-foreground"
                       : "text-muted-foreground hover:text-foreground"
@@ -235,14 +241,14 @@ export default function SidebarHeader({
                   <Archive className="h-3 w-3" />
                 </button>
               </Tooltip>
-              <Tooltip content={t('search.bookmarksTooltip', 'Bookmarks')} position="top">
+              <Tooltip content={t('search.bookmarksTooltip', 'Bookmarks')} position="top" triggerClassName="min-w-0 flex-1">
                 <button
                   onClick={() => onSearchModeChange('bookmarks')}
                   aria-pressed={searchMode === 'bookmarks'}
                   aria-label={t('search.bookmarksTooltip', 'Bookmarks')}
                   title={t('search.bookmarksTooltip', 'Bookmarks')}
                   className={cn(
-                    "flex items-center justify-center rounded-md px-2.5 py-1.5 text-xs font-normal transition-all",
+                    "w-full flex items-center justify-center rounded-md px-2 py-1.5 text-xs font-normal transition-all",
                     searchMode === 'bookmarks'
                       ? "bg-background shadow-sm text-foreground"
                       : "text-muted-foreground hover:text-foreground"
@@ -326,40 +332,46 @@ export default function SidebarHeader({
         {showSearchTools && (
           <div className="mt-2.5 space-y-2">
             <div className="flex rounded-lg bg-muted/50 p-0.5">
-              <button
-                onClick={() => onSearchModeChange('projects')}
-                aria-pressed={searchMode === 'projects'}
-                className={cn(
-                  "flex-1 flex items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-normal transition-all",
-                  searchMode === 'projects'
-                    ? "bg-background shadow-sm text-foreground"
-                    : "text-muted-foreground hover:text-foreground"
-                )}
-              >
-                <Folder className="h-3 w-3" />
-                {t('search.modeProjects')}
-              </button>
-              <button
-                onClick={() => onSearchModeChange('conversations')}
-                aria-pressed={searchMode === 'conversations'}
-                className={cn(
-                  "flex-1 flex items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-normal transition-all",
-                  searchMode === 'conversations'
-                    ? "bg-background shadow-sm text-foreground"
-                    : "text-muted-foreground hover:text-foreground"
-                )}
-              >
-                <MessageSquare className="h-3 w-3" />
-                {t('search.modeConversations')}
-              </button>
-              <Tooltip content={t('search.runningTooltip', 'Running sessions')} position="top">
+              <Tooltip content={t('search.modeProjects')} position="top" triggerClassName="min-w-0 flex-1">
+                <button
+                  onClick={() => onSearchModeChange('projects')}
+                  aria-pressed={searchMode === 'projects'}
+                  aria-label={t('search.modeProjects')}
+                  title={t('search.modeProjects')}
+                  className={cn(
+                    "w-full flex items-center justify-center rounded-md px-2 py-1.5 text-xs font-normal transition-all",
+                    searchMode === 'projects'
+                      ? "bg-background shadow-sm text-foreground"
+                      : "text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  <Folder className="h-3 w-3" />
+                </button>
+              </Tooltip>
+              <Tooltip content={t('search.modeConversations')} position="top" triggerClassName="min-w-0 flex-1">
+                <button
+                  onClick={() => onSearchModeChange('conversations')}
+                  aria-pressed={searchMode === 'conversations'}
+                  aria-label={t('search.modeConversations')}
+                  title={t('search.modeConversations')}
+                  className={cn(
+                    "w-full flex items-center justify-center rounded-md px-2 py-1.5 text-xs font-normal transition-all",
+                    searchMode === 'conversations'
+                      ? "bg-background shadow-sm text-foreground"
+                      : "text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  <MessageSquare className="h-3 w-3" />
+                </button>
+              </Tooltip>
+              <Tooltip content={t('search.runningTooltip', 'Running sessions')} position="top" triggerClassName="min-w-0 flex-1">
                 <button
                   onClick={() => onSearchModeChange('running')}
                   aria-pressed={searchMode === 'running'}
                   aria-label={t('search.runningTooltip', 'Running sessions')}
                   title={t('search.runningTooltip', 'Running sessions')}
                   className={cn(
-                    "flex items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-normal transition-all",
+                    "w-full flex items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-normal transition-all",
                     searchMode === 'running'
                       ? "bg-background shadow-sm text-foreground ring-1 ring-emerald-500/15"
                       : "text-muted-foreground hover:text-foreground"
@@ -376,14 +388,14 @@ export default function SidebarHeader({
                   <span className="sr-only">{t('search.modeRunning', 'Running')}</span>
                 </button>
               </Tooltip>
-              <Tooltip content={t('search.unreadTooltip', 'Unread sessions')} position="top">
+              <Tooltip content={t('search.unreadTooltip', 'Unread sessions')} position="top" triggerClassName="min-w-0 flex-1">
                 <button
                   onClick={() => onSearchModeChange('unread')}
                   aria-pressed={searchMode === 'unread'}
                   aria-label={t('search.unreadTooltip', 'Unread sessions')}
                   title={t('search.unreadTooltip', 'Unread sessions')}
                   className={cn(
-                    "flex items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-normal transition-all",
+                    "w-full flex items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-normal transition-all",
                     searchMode === 'unread'
                       ? "bg-background shadow-sm text-foreground ring-1 ring-sky-500/15"
                       : "text-muted-foreground hover:text-foreground"
@@ -400,14 +412,14 @@ export default function SidebarHeader({
                   <span className="sr-only">{t('search.modeUnread', 'Unread')}</span>
                 </button>
               </Tooltip>
-              <Tooltip content={t('search.archiveOnlyTooltip', 'Archive only')} position="top">
+              <Tooltip content={t('search.archiveOnlyTooltip', 'Archive only')} position="top" triggerClassName="min-w-0 flex-1">
                 <button
                   onClick={() => onSearchModeChange('archived')}
                   aria-pressed={searchMode === 'archived'}
                   aria-label={t('search.archiveOnlyTooltip', 'Archive only')}
                   title={t('search.archiveOnlyTooltip', 'Archive only')}
                   className={cn(
-                    "flex items-center justify-center rounded-md px-2.5 py-1.5 text-xs font-normal transition-all",
+                    "w-full flex items-center justify-center rounded-md px-2 py-1.5 text-xs font-normal transition-all",
                     searchMode === 'archived'
                       ? "bg-background shadow-sm text-foreground"
                       : "text-muted-foreground hover:text-foreground"
@@ -416,14 +428,14 @@ export default function SidebarHeader({
                   <Archive className="h-3 w-3" />
                 </button>
               </Tooltip>
-              <Tooltip content={t('search.bookmarksTooltip', 'Bookmarks')} position="top">
+              <Tooltip content={t('search.bookmarksTooltip', 'Bookmarks')} position="top" triggerClassName="min-w-0 flex-1">
                 <button
                   onClick={() => onSearchModeChange('bookmarks')}
                   aria-pressed={searchMode === 'bookmarks'}
                   aria-label={t('search.bookmarksTooltip', 'Bookmarks')}
                   title={t('search.bookmarksTooltip', 'Bookmarks')}
                   className={cn(
-                    "flex items-center justify-center rounded-md px-2.5 py-1.5 text-xs font-normal transition-all",
+                    "w-full flex items-center justify-center rounded-md px-2 py-1.5 text-xs font-normal transition-all",
                     searchMode === 'bookmarks'
                       ? "bg-background shadow-sm text-foreground"
                       : "text-muted-foreground hover:text-foreground"
