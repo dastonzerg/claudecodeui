@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { authenticatedFetch } from '../../../utils/api';
+import { emitBookmarksChanged, onBookmarksChanged } from '../../../utils/bookmarkSync';
 import type { BookmarkContextValue } from '../../../contexts/BookmarkContext';
 import type { MessageBookmark } from '../types/bookmarks';
 import type { ChatMessage } from '../types/types';
@@ -35,16 +36,27 @@ export function useBookmarks({
     }
 
     let cancelled = false;
-    authenticatedFetch(`/api/bookmarks?sessionId=${encodeURIComponent(sessionId)}`)
-      .then((response) => (response.ok ? response.json() : []))
-      .then((rows: MessageBookmark[]) => {
-        if (!cancelled) setBookmarks(Array.isArray(rows) ? rows : []);
-      })
-      .catch(() => {
-        if (!cancelled) setBookmarks([]);
-      });
+    const load = () => {
+      authenticatedFetch(`/api/bookmarks?sessionId=${encodeURIComponent(sessionId)}`)
+        .then((response) => (response.ok ? response.json() : []))
+        .then((rows: MessageBookmark[]) => {
+          if (!cancelled) setBookmarks(Array.isArray(rows) ? rows : []);
+        })
+        .catch(() => {
+          if (!cancelled) setBookmarks([]);
+        });
+    };
 
-    return () => { cancelled = true; };
+    load();
+    // The sidebar list owns a separate copy of the same rows, so a delete or
+    // rename there has to reach the rail. Re-fetch rather than patch locally:
+    // the server is the only place that knows what actually changed.
+    const unsubscribe = onBookmarksChanged(load);
+
+    return () => {
+      cancelled = true;
+      unsubscribe();
+    };
   }, [sessionId]);
 
   // Resolve every bookmark against the messages currently loaded. Bookmarks
@@ -133,6 +145,7 @@ export function useBookmarks({
         setBookmarks((current) => (
           current.some((b) => b.id === created.id) ? current : [...current, created]
         ));
+        emitBookmarksChanged();
       })
       .catch(() => { /* nothing pinned; the icon stays in its unpinned state */ });
   }, [sessionId, provider, projectPath]);
@@ -161,7 +174,7 @@ export function useBookmarks({
     };
 
     void authenticatedFetch(`/api/bookmarks/${bookmarkId}`, { method: 'DELETE' })
-      .then((response) => { if (!response.ok) restore(); })
+      .then((response) => { if (response.ok) { emitBookmarksChanged(); } else { restore(); } })
       .catch(restore);
   }, []);
 
@@ -174,6 +187,7 @@ export function useBookmarks({
       .then((updated: MessageBookmark | null) => {
         if (updated) {
           setBookmarks((current) => current.map((b) => (b.id === updated.id ? updated : b)));
+          emitBookmarksChanged();
         }
       })
       .catch(() => { /* label unchanged */ });

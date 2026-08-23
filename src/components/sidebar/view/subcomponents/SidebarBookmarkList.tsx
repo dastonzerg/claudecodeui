@@ -3,6 +3,7 @@ import { Pencil, Trash2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import { authenticatedFetch } from '../../../../utils/api';
+import { emitBookmarksChanged, onBookmarksChanged } from '../../../../utils/bookmarkSync';
 import type { MessageBookmark } from '../../../chat/types/bookmarks';
 
 interface SidebarBookmarkListProps {
@@ -27,15 +28,25 @@ function SidebarBookmarkList({ onBookmarkClick, searchFilter }: SidebarBookmarkL
 
   useEffect(() => {
     let cancelled = false;
-    authenticatedFetch('/api/bookmarks')
-      .then((response) => (response.ok ? response.json() : []))
-      .then((rows: MessageBookmark[]) => {
-        if (!cancelled) setBookmarks(Array.isArray(rows) ? rows : []);
-      })
-      .catch(() => { if (!cancelled) setBookmarks([]); })
-      .finally(() => { if (!cancelled) setIsLoading(false); });
+    const load = () => {
+      authenticatedFetch('/api/bookmarks')
+        .then((response) => (response.ok ? response.json() : []))
+        .then((rows: MessageBookmark[]) => {
+          if (!cancelled) setBookmarks(Array.isArray(rows) ? rows : []);
+        })
+        .catch(() => { if (!cancelled) setBookmarks([]); })
+        .finally(() => { if (!cancelled) setIsLoading(false); });
+    };
 
-    return () => { cancelled = true; };
+    load();
+    // Pinning or unpinning from a chat bubble mutates the same rows this list
+    // shows, so those changes have to reach it without a reload.
+    const unsubscribe = onBookmarksChanged(load);
+
+    return () => {
+      cancelled = true;
+      unsubscribe();
+    };
   }, []);
 
   const startEditing = (bookmark: MessageBookmark) => {
@@ -61,6 +72,7 @@ function SidebarBookmarkList({ onBookmarkClick, searchFilter }: SidebarBookmarkL
       .then((updated: MessageBookmark | null) => {
         if (updated) {
           setBookmarks((current) => current.map((b) => (b.id === updated.id ? updated : b)));
+          emitBookmarksChanged();
         }
       })
       .catch(() => { /* label unchanged */ });
@@ -72,7 +84,11 @@ function SidebarBookmarkList({ onBookmarkClick, searchFilter }: SidebarBookmarkL
 
     void authenticatedFetch(`/api/bookmarks/${bookmarkId}`, { method: 'DELETE' })
       .then((response) => {
-        if (!response.ok && removed) {
+        if (response.ok) {
+          // The rail in the open session holds its own copy of this row; without
+          // this it keeps rendering a marker for a bookmark that no longer exists.
+          emitBookmarksChanged();
+        } else if (removed) {
           setBookmarks((current) => (
             current.some((b) => b.id === removed.id) ? current : [...current, removed]
           ));
