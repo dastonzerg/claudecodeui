@@ -5,11 +5,13 @@ import { ArrowDownIcon } from 'lucide-react';
 import { useTasksSettings } from '../../../contexts/TasksSettingsContext';
 import { useWebSocket } from '../../../contexts/WebSocketContext';
 import PermissionContext from '../../../contexts/PermissionContext';
+import BookmarkContext from '../../../contexts/BookmarkContext';
 import type { ChatInterfaceProps, PermissionMode, Provider  } from '../types/types';
 import { useChatProviderState } from '../hooks/useChatProviderState';
 import { useChatSessionState } from '../hooks/useChatSessionState';
 import { useChatRealtimeHandlers } from '../hooks/useChatRealtimeHandlers';
 import { useChatComposerState } from '../hooks/useChatComposerState';
+import { useBookmarks } from '../hooks/useBookmarks';
 import { useSessionStore } from '../../../stores/useSessionStore';
 
 import ChatMessagesPane from './subcomponents/ChatMessagesPane';
@@ -135,6 +137,15 @@ function ChatInterface({
     statusCheckSentAtRef,
     lastSeqRef,
     sessionStore,
+  });
+
+  const bookmarkState = useBookmarks({
+    sessionId: selectedSession?.id ?? null,
+    provider,
+    // `Project.fullPath` is the required absolute path; `path` is optional and
+    // only set on some project shapes (see src/types/app.ts:80-90).
+    projectPath: selectedProject?.fullPath ?? selectedProject?.path ?? null,
+    messages: chatMessages,
   });
 
   // Brand-new conversation: the composer allocated a stable session id via
@@ -336,6 +347,7 @@ function ChatInterface({
   }
 
   return (
+    <BookmarkContext.Provider value={bookmarkState}>
     <PermissionContext.Provider value={permissionContextValue}>
       <div className="flex h-full min-h-0 flex-col">
         <ChatMessagesPane
@@ -482,6 +494,7 @@ function ChatInterface({
         onSelectProviderModel={selectProviderModel}
       />
     </PermissionContext.Provider>
+    </BookmarkContext.Provider>
   );
 }
 

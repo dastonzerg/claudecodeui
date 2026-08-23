@@ -81,6 +81,10 @@ export function normalizedToChatMessages(messages: NormalizedMessage[]): ChatMes
 
   for (const msg of messages) {
     const sharedMetadata = {
+      // The provider id, stable for anything read back from a transcript.
+      // Bookmarks anchor on it, and `getIntrinsicMessageKey` prefers it for
+      // React keys.
+      id: msg.id,
       displayText: msg.displayText,
       commandName: msg.commandName,
       commandMessage: msg.commandMessage,
