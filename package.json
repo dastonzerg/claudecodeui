@@ -47,6 +47,7 @@
     "preview": "vite preview",
     "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p server/tsconfig.json",
     "test": "cross-env TSX_TSCONFIG_PATH=server/tsconfig.json node --import tsx --test \"server/**/*.test.ts\" \"server/**/*.test.js\"",
+    "test:client": "vitest run",
     "lint": "eslint src/ server/",
     "lint:fix": "eslint src/ server/ --fix",
     "start": "npm run build && npm run server",
@@ -239,7 +240,8 @@
     "tsx": "^4.21.0",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.56.1",
-    "vite": "^7.0.4"
+    "vite": "^7.0.4",
+    "vitest": "^3.2.7"
   },
   "lint-staged": {
     "src/**/*.{ts,tsx,js,jsx}": "eslint",
