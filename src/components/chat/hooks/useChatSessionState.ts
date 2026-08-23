@@ -379,6 +379,25 @@ export function useChatSessionState({
     setIsUserScrolledUp(scrolledUp);
   }, [isNearBottom]);
 
+  // Track the scrolled-up state from the container's own `scroll` event, not
+  // just the wheel and touchmove handlers wired in the view.
+  //
+  // Those two miss every other way of moving the viewport: dragging the
+  // scrollbar, clicking its track, PageUp/PageDown, and the arrow keys. A user
+  // who scrolled up by any of those stayed flagged as "at the bottom", so each
+  // new message snapped them back down and the "Scroll to bottom" button —
+  // gated on the same flag — never appeared to let them return deliberately.
+  //
+  // The caution documented above about reacting to scroll position concerns
+  // auto-fetching older history mid-gesture, which is button-driven here. This
+  // listener only sets a boolean, so it cannot fight a momentum scroll.
+  useEffect(() => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
+    container.addEventListener('scroll', handleScroll, { passive: true });
+    return () => container.removeEventListener('scroll', handleScroll);
+  }, [handleScroll, selectedSession?.id]);
+
   // Debug-only watcher: reports every viewport movement and every content-height
   // change, including ones made by writers not instrumented above (and by the
   // browser's own scroll anchoring). Pairing a movement with the nearest
@@ -791,7 +810,7 @@ export function useChatSessionState({
       from: previousCount,
       to: chatMessages.length,
       isUserScrolledUp,
-      branch: isUserScrolledUp ? 'anchorToPrevTop' : 'scrollToBottom',
+      branch: isUserScrolledUp ? 'hold' : 'scrollToBottom',
       now: snapshotScroll(scrollContainerRef.current),
     });
 
@@ -800,17 +819,15 @@ export function useChatSessionState({
       return;
     }
 
-    const container = scrollContainerRef.current;
-    const prevHeight = scrollPositionRef.current.height;
-    const prevTop = scrollPositionRef.current.top;
-    const newHeight = container.scrollHeight;
-    const heightDiff = newHeight - prevHeight;
-    logScroll('follow:anchor', {
-      prevHeight, prevTop, newHeight, heightDiff,
-      willAdjust: heightDiff > 0 && prevTop > 0,
-      newTop: prevTop + heightDiff,
-    });
-    if (heightDiff > 0 && prevTop > 0) container.scrollTop = prevTop + heightDiff;
+    // Scrolled up: leave the viewport exactly where the user put it.
+    //
+    // This used to run `scrollTop = prevTop + heightDiff`, which pushed the
+    // view down by the height of whatever just arrived. That compensation is
+    // correct when content is inserted ABOVE the viewport, but new messages are
+    // appended BELOW it — nothing above the user moved, so the browser already
+    // keeps their position and any adjustment is a shove toward the bottom.
+    // Prepends (loading older history) are handled by the separate
+    // `pendingScrollRestoreRef` effect, which is where that math belongs.
   }, [chatMessages.length, isLoadingMoreMessages, isUserScrolledUp, scrollToBottom]);
 
   useEffect(() => {
