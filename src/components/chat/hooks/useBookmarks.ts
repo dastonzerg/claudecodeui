@@ -76,7 +76,7 @@ export function useBookmarks({
             setBookmarks((current) => current.map((b) => (b.id === updated.id ? updated : b)));
           }
         })
-        .catch(() => { /* the fallback still resolves; healing retries next mount */ });
+        .catch(() => { /* the fallback still resolves; healing retries next time sessionId changes, which resets healedRef */ });
     }
   }, [resolutions]);
 
@@ -128,12 +128,32 @@ export function useBookmarks({
   }, [sessionId, provider, projectPath]);
 
   const unpin = useCallback((bookmarkId: number) => {
-    const previous = bookmarks;
-    setBookmarks((current) => current.filter((b) => b.id !== bookmarkId));
+    // Roll back only the row this call removed, not the whole array — another
+    // pin/rename/self-heal can land while the DELETE is in flight, and
+    // restoring a stale snapshot would clobber that already-persisted change.
+    let removed: MessageBookmark | null = null;
+    setBookmarks((current) => {
+      removed = current.find((b) => b.id === bookmarkId) ?? null;
+      return current.filter((b) => b.id !== bookmarkId);
+    });
+
+    const restore = () => {
+      if (!removed) return;
+      setBookmarks((current) => (
+        current.some((b) => b.id === removed!.id)
+          ? current
+          // Match the server's ORDER BY message_timestamp ASC, id ASC so a
+          // rollback does not visibly reshuffle the rail.
+          : [...current, removed!].sort((a, b) => (
+            new Date(a.messageTimestamp).getTime() - new Date(b.messageTimestamp).getTime() || a.id - b.id
+          ))
+      ));
+    };
+
     void authenticatedFetch(`/api/bookmarks/${bookmarkId}`, { method: 'DELETE' })
-      .then((response) => { if (!response.ok) setBookmarks(previous); })
-      .catch(() => setBookmarks(previous));
-  }, [bookmarks]);
+      .then((response) => { if (!response.ok) restore(); })
+      .catch(restore);
+  }, []);
 
   const rename = useCallback((bookmarkId: number, label: string | null) => {
     void authenticatedFetch(`/api/bookmarks/${bookmarkId}`, {
@@ -149,5 +169,8 @@ export function useBookmarks({
       .catch(() => { /* label unchanged */ });
   }, []);
 
-  return { bookmarks, bookmarkForMessage, resolvedMessageIds, pin, unpin, rename };
+  return useMemo(
+    () => ({ bookmarks, bookmarkForMessage, resolvedMessageIds, pin, unpin, rename }),
+    [bookmarks, bookmarkForMessage, resolvedMessageIds, pin, unpin, rename],
+  );
 }

@@ -121,6 +121,11 @@ export function normalizedToChatMessages(messages: NormalizedMessage[]): ChatMes
                 content: formatUsageLimitText(unescapeWithMathProtection(decodeHtmlEntities(taskNotif.result))),
                 timestamp: msg.timestamp,
                 ...sharedMetadata,
+                // This and the summary pushed above both derive from the same
+                // NormalizedMessage, so sharedMetadata.id collides between them.
+                // Suffix deterministically (not randomly) so a bookmark on this
+                // message still resolves by id after a reload.
+                id: `${msg.id}_result`,
               });
             }
           } else {
