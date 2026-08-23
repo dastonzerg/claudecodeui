@@ -197,6 +197,42 @@ function Sidebar({
     t,
   };
 
+  // Shared by conversation search and the bookmark list: select the project if
+  // we can resolve one, then open the session carrying the message anchor so
+  // ChatInterface scrolls to it.
+  const navigateToSessionMessage = (
+    projectId: string | null,
+    sessionId: string,
+    provider: string,
+    messageTimestamp?: string | null,
+    messageSnippet?: string | null,
+  ) => {
+    const resolvedProvider = (provider || 'claude') as LLMProvider;
+    const project = projectId ? projects.find(p => p.projectId === projectId) : null;
+    const searchTarget = {
+      __searchTargetTimestamp: messageTimestamp || null,
+      __searchTargetSnippet: messageSnippet || null,
+    };
+    const sessionObj = {
+      id: sessionId,
+      __provider: resolvedProvider,
+      __projectId: projectId ?? undefined,
+      ...searchTarget,
+    };
+    if (project) {
+      handleProjectSelect(project);
+      const sessions = getProjectSessions(project);
+      const existing = sessions.find(s => s.id === sessionId);
+      if (existing) {
+        handleSessionClick({ ...existing, ...searchTarget }, project.projectId);
+      } else {
+        handleSessionClick(sessionObj, project.projectId);
+      }
+    } else {
+      handleSessionClick(sessionObj, projectId ?? '');
+    }
+  };
+
   return (
     <>
         <SidebarModals
@@ -272,27 +308,13 @@ function Sidebar({
               // The server emits null when it can't resolve a project row for
               // the search hit; treat that as "no project" and still navigate
               // to the session so the user can open it from the URL.
-              const resolvedProvider = (provider || 'claude') as LLMProvider;
-              const project = projectId ? projects.find(p => p.projectId === projectId) : null;
-              const searchTarget = { __searchTargetTimestamp: messageTimestamp || null, __searchTargetSnippet: messageSnippet || null };
-              const sessionObj = {
-                id: sessionId,
-                __provider: resolvedProvider,
-                __projectId: projectId ?? undefined,
-                ...searchTarget,
-              };
-              if (project) {
-                handleProjectSelect(project);
-                const sessions = getProjectSessions(project);
-                const existing = sessions.find(s => s.id === sessionId);
-                if (existing) {
-                  handleSessionClick({ ...existing, ...searchTarget }, project.projectId);
-                } else {
-                  handleSessionClick(sessionObj, project.projectId);
-                }
-              } else {
-                handleSessionClick(sessionObj, projectId ?? '');
-              }
+              navigateToSessionMessage(projectId, sessionId, provider, messageTimestamp, messageSnippet);
+            }}
+            onBookmarkClick={(sessionId: string, provider: string, messageTimestamp: string, messageSnippet: string, projectPath: string | null) => {
+              const project = projectPath
+                ? projects.find(p => p.fullPath === projectPath || p.path === projectPath) ?? null
+                : null;
+              navigateToSessionMessage(project?.projectId ?? null, sessionId, provider, messageTimestamp, messageSnippet);
             }}
             onRefresh={() => {
               void refreshProjects();

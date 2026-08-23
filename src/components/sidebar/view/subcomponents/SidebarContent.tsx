@@ -10,6 +10,7 @@ import type { ArchivedProjectListItem, ArchivedSessionListItem, SidebarSearchMod
 import SessionProviderLogo from '../../../llm-logo-provider/SessionProviderLogo';
 import { getAllSessions } from '../../utils/utils';
 
+import SidebarBookmarkList from './SidebarBookmarkList';
 import SidebarFooter from './SidebarFooter';
 import SidebarHeader from './SidebarHeader';
 import SidebarProjectList, { type SidebarProjectListProps } from './SidebarProjectList';
@@ -151,6 +152,13 @@ type SidebarContentProps = {
   // Conversation result clicks pass back the DB projectId (or null when the
   // server couldn't resolve it). Consumers must handle the null case.
   onConversationResultClick: (projectId: string | null, sessionId: string, provider: string, messageTimestamp?: string | null, messageSnippet?: string | null) => void;
+  onBookmarkClick: (
+    sessionId: string,
+    provider: string,
+    messageTimestamp: string,
+    messageSnippet: string,
+    projectPath: string | null,
+  ) => void;
   onRefresh: () => void;
   isRefreshing: boolean;
   onCreateProject: () => void;
@@ -190,6 +198,7 @@ export default function SidebarContent({
   onRestoreArchivedSession,
   onDeleteArchivedSession,
   onConversationResultClick,
+  onBookmarkClick,
   onRefresh,
   isRefreshing,
   onCreateProject,
@@ -691,6 +700,8 @@ export default function SidebarContent({
               ))}
             </div>
           )
+        ) : searchMode === 'bookmarks' ? (
+          <SidebarBookmarkList onBookmarkClick={onBookmarkClick} />
         ) : (
           <SidebarProjectList {...projectListProps} />
         )}

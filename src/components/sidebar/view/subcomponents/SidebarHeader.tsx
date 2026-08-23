@@ -1,4 +1,4 @@
-import { Activity, Archive, BellDot, Folder, FolderPlus, MessageSquare, Plus, RefreshCw, Search, X, PanelLeftClose } from 'lucide-react';
+import { Activity, Archive, BellDot, Bookmark, Folder, FolderPlus, MessageSquare, Plus, RefreshCw, Search, X, PanelLeftClose } from 'lucide-react';
 import type { TFunction } from 'i18next';
 
 import { Button, Input, Tooltip } from '../../../../shared/view/ui';
@@ -58,11 +58,13 @@ export default function SidebarHeader({
     ? t('search.conversationsPlaceholder')
     : searchMode === 'archived'
       ? t('search.archivedPlaceholder', 'Search archived sessions...')
-      : searchMode === 'running'
-        ? t('search.runningPlaceholder', 'Search running sessions...')
-        : searchMode === 'unread'
-          ? t('search.unreadPlaceholder', 'Search unread sessions...')
-          : t('projects.searchPlaceholder');
+      : searchMode === 'bookmarks'
+        ? t('search.bookmarksPlaceholder', 'Filter bookmarks...')
+        : searchMode === 'running'
+          ? t('search.runningPlaceholder', 'Search running sessions...')
+          : searchMode === 'unread'
+            ? t('search.unreadPlaceholder', 'Search unread sessions...')
+            : t('projects.searchPlaceholder');
   const runningBadgeText = runningSessionsCount > 99 ? '99+' : String(runningSessionsCount);
   const unreadBadgeText = unreadSessionsCount > 99 ? '99+' : String(unreadSessionsCount);
 
@@ -233,6 +235,22 @@ export default function SidebarHeader({
                   <Archive className="h-3 w-3" />
                 </button>
               </Tooltip>
+              <Tooltip content={t('search.bookmarksTooltip', 'Bookmarks')} position="top">
+                <button
+                  onClick={() => onSearchModeChange('bookmarks')}
+                  aria-pressed={searchMode === 'bookmarks'}
+                  aria-label={t('search.bookmarksTooltip', 'Bookmarks')}
+                  title={t('search.bookmarksTooltip', 'Bookmarks')}
+                  className={cn(
+                    "flex items-center justify-center rounded-md px-2.5 py-1.5 text-xs font-normal transition-all",
+                    searchMode === 'bookmarks'
+                      ? "bg-background shadow-sm text-foreground"
+                      : "text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  <Bookmark className="h-3 w-3" />
+                </button>
+              </Tooltip>
             </div>
             <div className="relative">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground/50" />
@@ -396,6 +414,22 @@ export default function SidebarHeader({
                   )}
                 >
                   <Archive className="h-3 w-3" />
+                </button>
+              </Tooltip>
+              <Tooltip content={t('search.bookmarksTooltip', 'Bookmarks')} position="top">
+                <button
+                  onClick={() => onSearchModeChange('bookmarks')}
+                  aria-pressed={searchMode === 'bookmarks'}
+                  aria-label={t('search.bookmarksTooltip', 'Bookmarks')}
+                  title={t('search.bookmarksTooltip', 'Bookmarks')}
+                  className={cn(
+                    "flex items-center justify-center rounded-md px-2.5 py-1.5 text-xs font-normal transition-all",
+                    searchMode === 'bookmarks'
+                      ? "bg-background shadow-sm text-foreground"
+                      : "text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  <Bookmark className="h-3 w-3" />
                 </button>
               </Tooltip>
             </div>
