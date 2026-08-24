@@ -135,6 +135,8 @@ export function useChatSessionState({
   const lastFollowedMessageCountRef = useRef(0);
   const loadAllFinishedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastLoadedSessionKeyRef = useRef<string | null>(null);
+  /** Session whose token usage has been fetched, so re-renders do not refetch. */
+  const lastTokenUsageSessionRef = useRef<string | null>(null);
   /**
    * Tracks the last processed value from `useProjectsState.newSessionTrigger`.
    *
@@ -616,7 +618,9 @@ export function useChatSessionState({
       if (slot) {
         setHasMoreMessages(slot.hasMore);
         setTotalMessages(slot.total);
-        if (slot.tokenUsage) setTokenBudget(slot.tokenUsage as Record<string, unknown>);
+        // Deliberately not setting tokenBudget from the messages payload: it
+        // raced the /token-usage fetch below with no ordering between them, so
+        // whichever resolved last won. One writer, one source.
       }
       setIsLoadingSessionMessages(false);
     }).catch(() => {
@@ -756,29 +760,58 @@ export function useChatSessionState({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chatMessages.length, isLoadingSessionMessages, searchTarget]);
 
-  // Initial token usage fetch for providers with file-backed usage data.
+  // Token usage, read from the provider's transcript.
+  //
+  // Runs on session open AND whenever a run finishes, so the figure stays live
+  // without a second component computing its own. Codex used to push a
+  // `token_budget` status at `turn.completed`, but the only usage that event
+  // carries is cumulative across the thread — it reported ~3.1M against a 258k
+  // window and pinned "% context left" at 0, while the transcript's
+  // `last_token_usage` (what this endpoint reads) said ~108k. Switching
+  // sessions and back "fixed" it precisely because that re-ran this fetch.
+  //
+  // Claude and OpenCode still push their own `token_budget`; this fetch runs
+  // after theirs and reconciles against the transcript, so the same class of
+  // drift cannot go unnoticed there either.
+  const wasProcessingRef = useRef(false);
   useEffect(() => {
-    if (!selectedSession?.id) {
+    const sessionId = selectedSession?.id;
+    if (!sessionId) {
       setTokenBudget(null);
+      wasProcessingRef.current = false;
       return;
     }
-    const fetchInitialTokenUsage = async () => {
+
+    const justFinishedRun = wasProcessingRef.current && !isProcessing;
+    wasProcessingRef.current = isProcessing;
+    // Re-fetch on open, and on the processing→idle edge. Skip the intermediate
+    // renders so a single turn costs one request, not one per re-render.
+    if (!justFinishedRun && sessionId === lastTokenUsageSessionRef.current) {
+      return;
+    }
+    lastTokenUsageSessionRef.current = sessionId;
+
+    let cancelled = false;
+    const fetchTokenUsage = async () => {
       try {
         // The provider module resolves storage and provider details from the session id.
-        const url = `/api/providers/sessions/${encodeURIComponent(selectedSession.id)}/token-usage`;
+        const url = `/api/providers/sessions/${encodeURIComponent(sessionId)}/token-usage`;
         const response = await authenticatedFetch(url);
+        if (cancelled) return;
         if (response.ok) {
           const payload = await response.json();
-          setTokenBudget(payload.data ?? null);
+          if (!cancelled) setTokenBudget(payload.data ?? null);
         } else {
           setTokenBudget(null);
         }
       } catch (error) {
-        console.error('Failed to fetch initial token usage:', error);
+        console.error('Failed to fetch token usage:', error);
       }
     };
-    fetchInitialTokenUsage();
-  }, [selectedSession?.id]);
+    fetchTokenUsage();
+
+    return () => { cancelled = true; };
+  }, [selectedSession?.id, isProcessing]);
 
   const visibleMessages = useMemo(() => {
     if (chatMessages.length <= visibleMessageCount) return chatMessages;

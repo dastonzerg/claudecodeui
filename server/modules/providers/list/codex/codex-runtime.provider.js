@@ -25,42 +25,21 @@ import { createCompleteMessage, createNormalizedMessage } from '@/shared/utils.j
 
 const activeCodexSessions = new Map();
 
-function readUsageNumber(value) {
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : 0;
-}
-
-function extractCodexTokenBudget(event) {
-  const info = event?.info || event?.payload?.info || event?.usage?.info;
-  // `last_token_usage` covers the most recent request, which is what actually
-  // occupies the context window. `total_token_usage` accumulates across every
-  // turn — each one re-sending the conversation — so it runs far past the
-  // window and pins "% context left" at 0. Fall back to it only for older
-  // transcripts that predate `last_token_usage`.
-  const usage = info?.last_token_usage
-    || event?.usage?.last_token_usage
-    || info?.total_token_usage
-    || event?.usage?.total_token_usage
-    || event?.usage;
-  if (!usage || typeof usage !== 'object') {
-    return null;
-  }
-
-  const inputTokens = readUsageNumber(usage.input_tokens);
-  const outputTokens = readUsageNumber(usage.output_tokens);
-  const used = readUsageNumber(usage.total_tokens) || inputTokens + outputTokens;
-
-  return {
-    used,
-    total: readUsageNumber(info?.model_context_window || event?.usage?.model_context_window) || 200000,
-    inputTokens,
-    outputTokens,
-    breakdown: {
-      input: inputTokens,
-      output: outputTokens,
-    },
-  };
-}
+// Codex deliberately does NOT push a `token_budget` status the way Claude and
+// OpenCode do.
+//
+// The only event carrying usage here is `turn.completed`, whose `usage` is a
+// flat { input_tokens, cached_input_tokens, output_tokens,
+// reasoning_output_tokens } — no `last_token_usage` / `total_token_usage` pair
+// to choose between, and in practice the figures are cumulative across the
+// thread rather than for the turn alone. Reporting them as context usage showed
+// ~3.1M against a 258k window and pinned "% context left" at 0, while the real
+// per-request figure was ~108k.
+//
+// The transcript's own `token_count` entries do carry `last_token_usage`, and
+// `provider-token-usage.service.ts` already reads exactly that. The client
+// re-fetches `/token-usage` when a run completes, so the number stays live from
+// a single source instead of two that can disagree.
 
 /**
  * Transform Codex SDK event to WebSocket message format
@@ -371,13 +350,6 @@ export async function queryCodex(command, options = {}, ws, context) {
         });
       }
 
-      // Extract and send token usage if available (normalized to match Claude format)
-      if (event.type === 'turn.completed') {
-        const tokenBudget = extractCodexTokenBudget(event);
-        if (tokenBudget) {
-          sendMessage(ws, createNormalizedMessage({ kind: 'status', text: 'token_budget', tokenBudget, sessionId: capturedSessionId || sessionId || null, provider: 'codex' }));
-        }
-      }
     }
 
     // Send the terminal completion event — skipped for aborted runs, whose
