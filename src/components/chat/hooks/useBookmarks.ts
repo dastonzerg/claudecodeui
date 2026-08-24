@@ -12,8 +12,6 @@ interface UseBookmarksOptions {
   provider: string;
   projectPath: string | null;
   messages: ChatMessage[];
-  /** While true, resolution skips the O(n) content fallback scan (see below). */
-  isStreaming?: boolean;
 }
 
 export function useBookmarks({
@@ -21,15 +19,26 @@ export function useBookmarks({
   provider,
   projectPath,
   messages,
-  isStreaming = false,
 }: UseBookmarksOptions): BookmarkContextValue {
   const [bookmarks, setBookmarks] = useState<MessageBookmark[]>([]);
   // Bookmarks already self-healed this mount, so a resolution pass that runs
   // again on the next message update does not re-issue the same PATCH.
   const healedRef = useRef(new Set<number>());
+  // Bookmark id to the message id it resolved to.
+  //
+  // The content fallback is an O(n) scan doing a lowercase + includes per
+  // message, and the resolution memo re-runs on every stream delta. This used
+  // to be handled by skipping the fallback entirely while a run was active,
+  // which meant a bookmark needing the fallback could not resolve at all
+  // mid-run — the rail collapsed into its "not loaded" badge for the whole
+  // generation, and worse, opening an already-running session meant nothing
+  // ever healed. Caching the answer instead keeps resolution working while
+  // still running the scan at most once per bookmark.
+  const resolutionCacheRef = useRef(new Map<number, string>());
 
   useEffect(() => {
     healedRef.current = new Set();
+    resolutionCacheRef.current = new Map();
     if (!sessionId) {
       setBookmarks([]);
       return;
@@ -59,6 +68,15 @@ export function useBookmarks({
     };
   }, [sessionId]);
 
+  /** Message ids currently rendered, so a cached resolution is O(1) to confirm. */
+  const loadedMessageIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const message of messages) {
+      if (typeof message.id === 'string') ids.add(message.id);
+    }
+    return ids;
+  }, [messages]);
+
   // Resolve every bookmark against the messages currently loaded. Bookmarks
   // whose message has not been loaded simply have no entry.
   const resolutions = useMemo(() => {
@@ -71,14 +89,25 @@ export function useBookmarks({
       if (bookmark.sessionId !== sessionId) {
         continue;
       }
-      const resolved = resolveBookmarkTarget(bookmark, messages, { skipFallback: isStreaming });
+
+      // A message this bookmark already resolved to is still the answer as long
+      // as it is still rendered — messages are appended, not rewritten, so this
+      // holds for the life of the session and skips the scan entirely.
+      const cached = resolutionCacheRef.current.get(bookmark.id);
+      if (cached && loadedMessageIds.has(cached)) {
+        byBookmarkId.set(bookmark.id, { messageId: cached, viaFallback: false });
+        continue;
+      }
+
+      const resolved = resolveBookmarkTarget(bookmark, messages);
       const resolvedId = resolved?.message.id;
       if (resolved && typeof resolvedId === 'string') {
+        resolutionCacheRef.current.set(bookmark.id, resolvedId);
         byBookmarkId.set(bookmark.id, { messageId: resolvedId, viaFallback: resolved.viaFallback });
       }
     }
     return byBookmarkId;
-  }, [bookmarks, messages, sessionId, isStreaming]);
+  }, [bookmarks, messages, loadedMessageIds, sessionId]);
 
   // Self-heal: a bookmark found by content fallback gets its stored id
   // rewritten, so step 2 of resolution runs at most once per bookmark.

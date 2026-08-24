@@ -92,11 +92,4 @@ describe('resolveBookmarkTarget', () => {
     expect(resolved).toEqual({ message: messages[1], viaFallback: true });
   });
 
-  it('skips the content fallback when skipFallback is set, even with an id miss', () => {
-    const messages = [
-      message('reloaded-b', 'user', '2026-08-22T10:00:02.000Z', 'the pinned sentence and more'),
-    ];
-
-    expect(resolveBookmarkTarget(bookmark, messages, { skipFallback: true })).toBeNull();
-  });
 });

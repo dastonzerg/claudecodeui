@@ -7,7 +7,6 @@ import type { Project, ProjectSession, LLMProvider } from '../../../types/app';
 import type { SessionStore, NormalizedMessage } from '../../../stores/useSessionStore';
 import type { ChatMessage } from '../types/types';
 import { createCachedDiffCalculator, type DiffCalculator } from '../utils/messageTransforms';
-import { isScrollDebugEnabled, logScroll, snapshotScroll } from '../../../utils/scrollDebug';
 
 import { normalizedToChatMessages } from './useChatMessages';
 
@@ -298,10 +297,9 @@ export function useChatSessionState({
 
   const rewindMessages = useCallback((count: number) => setViewHiddenCount(count), []);
 
-  const scrollToBottom = useCallback((reason = 'unspecified') => {
+  const scrollToBottom = useCallback(() => {
     const container = scrollContainerRef.current;
     if (!container) return;
-    logScroll('scrollToBottom', { reason, before: snapshotScroll(container) });
     container.scrollTop = container.scrollHeight;
   }, []);
 
@@ -377,7 +375,6 @@ export function useChatSessionState({
     const container = scrollContainerRef.current;
     if (!container) return;
     const scrolledUp = !isNearBottom();
-    logScroll('userScroll', { scrolledUp, at: snapshotScroll(container) });
     setIsUserScrolledUp(scrolledUp);
   }, [isNearBottom]);
 
@@ -400,43 +397,6 @@ export function useChatSessionState({
     return () => container.removeEventListener('scroll', handleScroll);
   }, [handleScroll, selectedSession?.id]);
 
-  // Debug-only watcher: reports every viewport movement and every content-height
-  // change, including ones made by writers not instrumented above (and by the
-  // browser's own scroll anchoring). Pairing a movement with the nearest
-  // preceding named log line is what identifies the culprit.
-  useEffect(() => {
-    if (!isScrollDebugEnabled()) return;
-    const container = scrollContainerRef.current;
-    if (!container) return;
-
-    let last = snapshotScroll(container);
-    const report = (source: string) => {
-      const next = snapshotScroll(container);
-      if (!next || !last) return;
-      const movedBy = next.scrollTop - last.scrollTop;
-      const grewBy = next.scrollHeight - last.scrollHeight;
-      if (movedBy !== 0 || grewBy !== 0) {
-        logScroll(`watch:${source}`, { movedBy, grewBy, ...next });
-      }
-      last = next;
-    };
-
-    const onScroll = () => report('scroll');
-    container.addEventListener('scroll', onScroll, { passive: true });
-
-    const observer = typeof ResizeObserver !== 'undefined'
-      ? new ResizeObserver(() => report('resize'))
-      : null;
-    observer?.observe(container);
-    const content = container.firstElementChild;
-    if (content) observer?.observe(content);
-
-    return () => {
-      container.removeEventListener('scroll', onScroll);
-      observer?.disconnect();
-    };
-  }, [selectedSession?.id]);
-
   const loadMoreMessages = useCallback(() => {
     const container = scrollContainerRef.current;
     if (!container) return;
@@ -448,12 +408,6 @@ export function useChatSessionState({
     const { height, top } = pendingScrollRestoreRef.current;
     const container = scrollContainerRef.current;
     const newScrollHeight = container.scrollHeight;
-    logScroll('loadOlder:restore', {
-      savedHeight: height,
-      savedTop: top,
-      newScrollHeight,
-      newTop: top + Math.max(newScrollHeight - height, 0),
-    });
     container.scrollTop = top + Math.max(newScrollHeight - height, 0);
     pendingScrollRestoreRef.current = null;
   }, [chatMessages.length]);
@@ -490,10 +444,6 @@ export function useChatSessionState({
     if (searchScrollActiveRef.current) { pendingInitialScrollRef.current = false; return; }
 
     const container = scrollContainerRef.current;
-    logScroll('initialPin:start', {
-      messages: chatMessages.length,
-      before: snapshotScroll(container),
-    });
     // Pin to the bottom pre-paint so the chat never flashes at the top; the rAF
     // loop below keeps it anchored as lazy content (code/markdown/images) reflows.
     container.scrollTop = container.scrollHeight;
@@ -515,14 +465,6 @@ export function useChatSessionState({
       if (stableCount < 3 && frame < 60) {
         rafId = requestAnimationFrame(tick);
       } else {
-        // Which exit fired matters: 'settled' means the content stopped growing,
-        // 'frameCap' means we gave up while it was still growing — after which
-        // nothing re-anchors the viewport.
-        logScroll('initialPin:end', {
-          exit: stableCount >= 3 ? 'settled' : 'frameCap',
-          frames: frame,
-          after: snapshotScroll(container),
-        });
         pendingInitialScrollRef.current = false;
       }
     };
@@ -835,20 +777,11 @@ export function useChatSessionState({
     // it does fights the user's own scroll gesture, reading as an abrupt
     // bounce distinct from the browser's native (smooth) overscroll rubber-band.
     const grewByNewMessage = chatMessages.length > lastFollowedMessageCountRef.current;
-    const previousCount = lastFollowedMessageCountRef.current;
     lastFollowedMessageCountRef.current = chatMessages.length;
     if (!grewByNewMessage) return;
 
-    logScroll('follow:newMessages', {
-      from: previousCount,
-      to: chatMessages.length,
-      isUserScrolledUp,
-      branch: isUserScrolledUp ? 'hold' : 'scrollToBottom',
-      now: snapshotScroll(scrollContainerRef.current),
-    });
-
     if (!isUserScrolledUp) {
-      setTimeout(() => scrollToBottom('follow:newMessages'), 50);
+      setTimeout(() => scrollToBottom(), 50);
       return;
     }
 

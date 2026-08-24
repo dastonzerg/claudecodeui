@@ -96,9 +96,14 @@ function BookmarkRail({ scrollContainerRef, contentRef, messagesRevision, onLoad
     // directly: `offsetTop` is measured against this same container (it is the
     // bubbles' offsetParent), which is the coordinate space the marker
     // positions above already use.
+    //
+    // Jump instantly rather than smooth-scrolling: a bookmark is a destination,
+    // and animating a long transcript means watching hundreds of messages blur
+    // past before arriving. The highlight flash below is what confirms where
+    // you landed.
     container.scrollTo({
       top: Math.max(0, element.offsetTop - JUMP_TOP_PADDING_PX),
-      behavior: 'smooth',
+      behavior: 'auto',
     });
     element.classList.add(HIGHLIGHT_CLASS);
     setTimeout(() => element.classList.remove(HIGHLIGHT_CLASS), HIGHLIGHT_DURATION_MS);

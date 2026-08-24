@@ -8,7 +8,6 @@ import type { MarkSessionIdle, MarkSessionProcessing } from '../../../hooks/useS
 import type { PendingPermissionRequest } from '../types/types';
 import type { ProjectSession, LLMProvider } from '../../../types/app';
 import type { SessionStore, NormalizedMessage } from '../../../stores/useSessionStore';
-import { logScroll } from '../../../utils/scrollDebug';
 
 const isActionablePermissionRequest = (request: { toolName?: unknown } | null | undefined): boolean => {
   return request?.toolName !== 'ExitPlanMode' && request?.toolName !== 'exit_plan_mode';
@@ -108,7 +107,6 @@ export function useChatRealtimeHandlers({
 
       switch (msg.kind) {
         case 'websocket_reconnected':
-          logScroll('ws:reconnected');
           onWebSocketReconnect?.();
           return;
 

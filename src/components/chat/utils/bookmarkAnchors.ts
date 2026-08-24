@@ -34,20 +34,12 @@ function messageTime(message: ChatMessage): number {
 export function resolveBookmarkTarget(
   bookmark: MessageBookmark,
   messages: ChatMessage[],
-  options?: { skipFallback?: boolean },
 ): ResolvedBookmark | null {
   if (bookmark.messageId) {
     const exact = messages.find((message) => message.id === bookmark.messageId);
     if (exact) {
       return { message: exact, viaFallback: false };
     }
-  }
-
-  // The content fallback below is an O(n) scan doing a lowercase + includes
-  // per message. It re-runs on every stream delta via the resolution memo, so
-  // callers skip it while a message is actively streaming.
-  if (options?.skipFallback) {
-    return null;
   }
 
   const targetTime = new Date(bookmark.messageTimestamp).getTime();
