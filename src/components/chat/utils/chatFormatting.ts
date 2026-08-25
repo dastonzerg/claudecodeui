@@ -44,7 +44,15 @@ export function unescapeWithMathProtection(text: string) {
     return `${inlineCodePrefix}${index}${placeholderSuffix}`;
   });
 
-  processedText = processedText.replace(/\$\$([\s\S]*?)\$\$|\$([^\$\n]+?)\$/g, (match) => {
+  // Both delimiter families must be shielded. LaTeX control words are dense in
+  // `\t`/`\n`/`\r` starters — \text, \tag, \theta, \neq, \right, \rho — so an
+  // unprotected math block loses them to the unescaping below and reaches
+  // KaTeX as a parse error. `normalizeLatexDelimiters` rewrites \[..\] to
+  // $$..$$ at render time, but that runs later than this.
+  const mathPattern =
+    /\$\$[\s\S]*?\$\$|\$[^\$\n]+?\$|\\\[[\s\S]*?\\\]|\\\((?:[^\n]|\n(?!\s*\n))*?\\\)/g;
+
+  processedText = processedText.replace(mathPattern, (match) => {
     const index = mathBlocks.length;
     mathBlocks.push(match);
     return `${mathBlockPrefix}${index}${placeholderSuffix}`;
