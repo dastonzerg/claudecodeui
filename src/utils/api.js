@@ -115,13 +115,18 @@ export const authenticatedFetch = (url, options = {}) => {
       expireAuthSession();
     }
 
-    // A token that is expired or otherwise unverifiable comes back as 403 (401
-    // means none was sent), and not every endpoint sets X-Auth-Error. Without
-    // this the stored token stays put and every later call fails the same way,
-    // leaving the UI convinced it is signed in with no route back to the login
-    // screen. Only act when a token was actually sent, so unauthenticated
-    // probes cannot trigger a spurious logout.
-    if (!IS_PLATFORM && token && (response.status === 401 || response.status === 403)) {
+    // A token that is expired or otherwise unverifiable comes back as 401.
+    // Without this the stored token stays put and every later call fails the
+    // same way, leaving the UI convinced it is signed in with no route back to
+    // the login screen. Only act when a token was actually sent, so
+    // unauthenticated probes cannot trigger a spurious logout.
+    //
+    // 403 is deliberately excluded: the auth middleware never uses it, but
+    // routes do, for resource-level refusals such as a file-tree path outside
+    // the project root. Treating those as a rejected token signed the user out
+    // mid-session and put them in a login loop, because re-rendering the same
+    // chat message re-issued the same forbidden request.
+    if (!IS_PLATFORM && token && response.status === 401) {
       expireAuthSession();
     }
 

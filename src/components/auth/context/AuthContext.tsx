@@ -178,7 +178,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     void checkAuthStatus();
   }, [checkAuthStatus, checkOnboardingStatus]);
 
-  // Note: recovery from a server-rejected (401/403) token is handled by
+  // Note: recovery from a server-rejected (401) token is handled by
   // authenticatedFetch calling expireAuthSession(), which fires
   // AUTH_SESSION_EXPIRED_EVENT — already handled by the listener above.
   useEffect(() => {
