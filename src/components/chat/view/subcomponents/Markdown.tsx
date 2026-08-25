@@ -10,6 +10,7 @@ import { useTranslation } from 'react-i18next';
 
 import { normalizeInlineCodeFences } from '../../utils/chatFormatting';
 import { copyTextToClipboard } from '../../../../utils/clipboard';
+import { normalizeLatexDelimiters } from '../../../../utils/markdownMath';
 import { usePaletteOps } from '../../../../contexts/PaletteOpsContext';
 import { useTheme } from '../../../../contexts/ThemeContext';
 
@@ -192,7 +193,7 @@ const markdownComponents = {
 };
 
 export function Markdown({ children, className, breaks = false }: MarkdownProps) {
-  const content = normalizeInlineCodeFences(String(children ?? ''));
+  const content = normalizeLatexDelimiters(normalizeInlineCodeFences(String(children ?? '')));
   const remarkPlugins = useMemo(
     () => (breaks
       ? [remarkGfm, [remarkMath, { singleDollarTextMath: false }], remarkBreaks]
