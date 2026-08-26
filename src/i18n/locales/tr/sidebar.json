@@ -70,7 +70,8 @@
     "rename": "Yeniden Adlandır",
     "joinCommunity": "Topluluğa Katıl",
     "reportIssue": "Sorun Bildir",
-    "starOnGithub": "GitHub'da Yıldızla"
+    "starOnGithub": "GitHub'da Yıldızla",
+    "more": "Daha fazla"
   },
   "branding": {
     "openSource": "Açık Kaynak"

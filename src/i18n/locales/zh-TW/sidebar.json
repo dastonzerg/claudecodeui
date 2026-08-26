@@ -69,7 +69,8 @@
     "rename": "重新命名",
     "joinCommunity": "加入社群",
     "reportIssue": "回報問題",
-    "starOnGithub": "在 GitHub 上加星"
+    "starOnGithub": "在 GitHub 上加星",
+    "more": "更多"
   },
   "branding": {
     "openSource": "開源"
