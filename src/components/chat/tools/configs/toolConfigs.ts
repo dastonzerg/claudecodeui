@@ -1,7 +1,22 @@
 /**
  * Centralized tool configuration registry
- * Defines display behavior for all tool types 
+ * Defines display behavior for all tool types
  */
+
+import { parseAnswersFromResult } from '../utils/askUserQuestionAnswers';
+
+/**
+ * Answers live on the tool input while the question is on screen, but the
+ * persisted transcript stores the call as issued — questions only. Fall back to
+ * the result, which names each answer, so a reloaded session still shows what
+ * was picked instead of an unanswered-looking list.
+ */
+function resolveQuestionAnswers(input: any, context?: any): Record<string, string> {
+  if (input?.answers && Object.keys(input.answers).length > 0) {
+    return input.answers;
+  }
+  return parseAnswersFromResult(context?.toolResult?.content, input?.questions);
+}
 
 export interface ToolDisplayConfig {
   input: {
@@ -22,7 +37,7 @@ export interface ToolDisplayConfig {
       icon?: string;
     };
     // Collapsible config
-    title?: string | ((input: any) => string);
+    title?: string | ((input: any, helpers?: any) => string);
     defaultOpen?: boolean;
     contentType?: 'diff' | 'markdown' | 'file-list' | 'todo-list' | 'text' | 'task' | 'question-answer';
     getContentProps?: (input: any, helpers?: any) => any;
@@ -467,9 +482,9 @@ export const TOOL_CONFIGS: Record<string, ToolDisplayConfig> = {
   AskUserQuestion: {
     input: {
       type: 'collapsible',
-      title: (input: any) => {
+      title: (input: any, context?: any) => {
         const count = input.questions?.length || 0;
-        const hasAnswers = input.answers && Object.keys(input.answers).length > 0;
+        const hasAnswers = Object.keys(resolveQuestionAnswers(input, context)).length > 0;
         if (count === 1) {
           const header = input.questions[0]?.header || 'Question';
           return hasAnswers ? `${header} — answered` : header;
@@ -478,9 +493,9 @@ export const TOOL_CONFIGS: Record<string, ToolDisplayConfig> = {
       },
       defaultOpen: true,
       contentType: 'question-answer',
-      getContentProps: (input: any) => ({
+      getContentProps: (input: any, context?: any) => ({
         questions: input.questions || [],
-        answers: input.answers || {}
+        answers: resolveQuestionAnswers(input, context)
       }),
     },
     result: {

@@ -208,8 +208,11 @@ export const ToolRenderer: React.FC<ToolRendererProps> = memo(({
   }
 
   if (displayConfig.type === 'collapsible') {
+    // Some tools only record part of their state on the input (AskUserQuestion
+    // persists the questions but not the chosen answers), so the result is
+    // offered alongside it.
     const title = typeof displayConfig.title === 'function'
-      ? displayConfig.title(parsedData)
+      ? displayConfig.title(parsedData, { toolResult })
       : displayConfig.title || 'Details';
 
     const defaultOpen = displayConfig.defaultOpen !== undefined
@@ -219,7 +222,8 @@ export const ToolRenderer: React.FC<ToolRendererProps> = memo(({
     const contentProps = displayConfig.getContentProps?.(parsedData, {
       selectedProject,
       createDiff,
-      onFileOpen
+      onFileOpen,
+      toolResult
     }) || {};
 
     let contentComponent: React.ReactNode = null;
