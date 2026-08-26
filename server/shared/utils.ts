@@ -329,6 +329,23 @@ export function generateMessageId(prefix = 'msg'): string {
 }
 
 /**
+ * Id for a persisted transcript entry that carries no id of its own.
+ *
+ * Derived from the entry's position rather than randomly, because the client
+ * keys the React message list by id: a random fallback returned a different id
+ * for the same message on every read, so each refresh remounted the whole list,
+ * destroyed the browser's scroll anchor, and jumped the viewport of anyone
+ * reading further up. It also invalidated bookmarks, which store `message_id`.
+ *
+ * Position is a safe basis because providers read the full transcript and then
+ * slice it for pagination, and transcripts only ever grow by appending — so an
+ * entry keeps its ordinal across reads regardless of the page requested.
+ */
+export function historyMessageId(prefix: string, sessionId: string | null, ordinal: number): string {
+  return `${prefix}_${sessionId ?? 'unknown'}_${ordinal}`;
+}
+
+/**
  * Creates a normalized provider message and fills the shared envelope fields.
  *
  * Provider adapters and live SDK handlers pass through provider-specific fields,

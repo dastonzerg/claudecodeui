@@ -190,3 +190,112 @@ test('Codex history renders Promise.all shell wrappers as Bash activity', { conc
     await rm(tempRoot, { recursive: true, force: true });
   }
 });
+
+/**
+ * React keys the chat list by message id. A transcript entry with no id of its
+ * own used to fall back to a random uuid, minted fresh on every read, so two
+ * identical reads returned two different sets of ids. The client then remounted
+ * every message on each refresh, which destroyed the browser's scroll anchor
+ * and jumped the viewport of anyone reading further up.
+ */
+test('Codex history assigns the same message ids on repeated reads', { concurrency: false }, async () => {
+  const tempRoot = await mkdtemp(path.join(os.tmpdir(), 'codex-stable-ids-'));
+  const workspacePath = path.join(tempRoot, 'workspace');
+  await mkdir(workspacePath, { recursive: true });
+  const restoreHomeDir = patchHomeDir(tempRoot);
+
+  try {
+    const providerSessionId = 'codex-stable-1';
+    const transcriptPath = await writeCodexTranscript(tempRoot, providerSessionId, workspacePath);
+    await writeFile(transcriptPath, [
+      JSON.stringify({ type: 'session_meta', payload: { id: providerSessionId, cwd: workspacePath } }),
+      JSON.stringify({ type: 'event_msg', payload: { type: 'user_message', message: 'first question' } }),
+      JSON.stringify({ type: 'event_msg', payload: { type: 'agent_message', message: 'first answer' } }),
+      JSON.stringify({ type: 'event_msg', payload: { type: 'user_message', message: 'second question' } }),
+      JSON.stringify({ type: 'event_msg', payload: { type: 'agent_message', message: 'second answer' } }),
+    ].join('\n') + '\n', 'utf8');
+
+    await withIsolatedDatabase(async () => {
+      sessionsDb.createAppSession('app-stable-1', 'codex', workspacePath);
+      sessionsDb.assignProviderSessionId('app-stable-1', providerSessionId);
+      await new CodexSessionSynchronizer().synchronize();
+
+      const provider = new CodexSessionsProvider();
+      const first = await provider.fetchHistory('app-stable-1');
+      const second = await provider.fetchHistory('app-stable-1');
+
+      assert.ok(first.messages.length > 0, 'expected the transcript to produce messages');
+      assert.equal(first.messages.length, second.messages.length);
+      assert.deepEqual(
+        second.messages.map((message) => message.id),
+        first.messages.map((message) => message.id),
+        'message ids must be identical across reads so React can reuse the DOM nodes',
+      );
+      assert.equal(
+        new Set(first.messages.map((message) => message.id)).size,
+        first.messages.length,
+        'message ids must stay unique within a transcript',
+      );
+    });
+  } finally {
+    restoreHomeDir();
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+/**
+ * Position-derived ids are only sound if an entry keeps its ordinal as the
+ * transcript grows. That is the live case: the agent appends while the reader
+ * sits further up, and any id churn among the messages already on screen would
+ * remount them and jump the viewport — the very thing the ids were made stable
+ * to prevent.
+ */
+test('Codex history keeps existing message ids when the transcript grows', { concurrency: false }, async () => {
+  const tempRoot = await mkdtemp(path.join(os.tmpdir(), 'codex-grow-ids-'));
+  const workspacePath = path.join(tempRoot, 'workspace');
+  await mkdir(workspacePath, { recursive: true });
+  const restoreHomeDir = patchHomeDir(tempRoot);
+
+  try {
+    const providerSessionId = 'codex-grow-1';
+    const transcriptPath = await writeCodexTranscript(tempRoot, providerSessionId, workspacePath);
+    const openingLines = [
+      JSON.stringify({ type: 'session_meta', payload: { id: providerSessionId, cwd: workspacePath } }),
+      JSON.stringify({ type: 'event_msg', payload: { type: 'user_message', message: 'first question' } }),
+      JSON.stringify({ type: 'event_msg', payload: { type: 'agent_message', message: 'first answer' } }),
+    ];
+    await writeFile(transcriptPath, openingLines.join('\n') + '\n', 'utf8');
+
+    await withIsolatedDatabase(async () => {
+      sessionsDb.createAppSession('app-grow-1', 'codex', workspacePath);
+      sessionsDb.assignProviderSessionId('app-grow-1', providerSessionId);
+      await new CodexSessionSynchronizer().synchronize();
+
+      const provider = new CodexSessionsProvider();
+      const before = await provider.fetchHistory('app-grow-1');
+
+      // The agent keeps working: two more turns land at the end of the rollout.
+      await writeFile(transcriptPath, [
+        ...openingLines,
+        JSON.stringify({ type: 'event_msg', payload: { type: 'user_message', message: 'second question' } }),
+        JSON.stringify({ type: 'event_msg', payload: { type: 'agent_message', message: 'second answer' } }),
+      ].join('\n') + '\n', 'utf8');
+
+      const after = await provider.fetchHistory('app-grow-1');
+
+      assert.ok(before.messages.length > 0, 'expected the opening transcript to produce messages');
+      assert.ok(
+        after.messages.length > before.messages.length,
+        'expected the appended turns to produce more messages',
+      );
+      assert.deepEqual(
+        after.messages.slice(0, before.messages.length).map((message) => message.id),
+        before.messages.map((message) => message.id),
+        'ids of already-rendered messages must not change when new ones are appended',
+      );
+    });
+  } finally {
+    restoreHomeDir();
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+});

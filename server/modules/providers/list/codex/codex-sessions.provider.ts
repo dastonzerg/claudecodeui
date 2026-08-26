@@ -5,7 +5,7 @@ import { sessionsDb } from '@/modules/database/index.js';
 import { parseFilesInputTag, toImageAttachments } from '@/shared/image-attachments.js';
 import type { IProviderSessions } from '@/shared/interfaces.js';
 import type { AnyRecord, FetchHistoryOptions, FetchHistoryResult, NormalizedMessage } from '@/shared/types.js';
-import { createNormalizedMessage, generateMessageId, readObjectRecord, sliceTailPage } from '@/shared/utils.js';
+import { createNormalizedMessage, generateMessageId, historyMessageId, readObjectRecord, sliceTailPage } from '@/shared/utils.js';
 
 const PROVIDER = 'codex';
 
@@ -700,9 +700,18 @@ export class CodexSessionsProvider implements IProviderSessions {
    * Live Codex SDK events are transformed before they reach normalizeMessage(),
    * while history entries already use a compact message/tool shape from projects.js.
    */
-  private normalizeHistoryEntry(raw: AnyRecord, sessionId: string | null): NormalizedMessage[] {
+  private normalizeHistoryEntry(
+    raw: AnyRecord,
+    sessionId: string | null,
+    ordinal?: number,
+  ): NormalizedMessage[] {
     const ts = raw.timestamp || new Date().toISOString();
-    const baseId = raw.uuid || generateMessageId('codex');
+    // Live events have no position in a transcript, so they keep the random id;
+    // persisted entries pass their ordinal and get an id that survives a reread.
+    const baseId = raw.uuid
+      || (ordinal === undefined
+        ? generateMessageId('codex')
+        : historyMessageId('codex', sessionId, ordinal));
 
     if (raw.type === 'thinking' || raw.isReasoning) {
       const thinkingContent = typeof raw.message?.content === 'string'
@@ -993,9 +1002,9 @@ export class CodexSessionsProvider implements IProviderSessions {
     const tokenUsage = Array.isArray(result) ? undefined : result.tokenUsage;
 
     const normalized: NormalizedMessage[] = [];
-    for (const raw of rawMessages) {
-      normalized.push(...this.normalizeHistoryEntry(raw, sessionId));
-    }
+    rawMessages.forEach((raw: AnyRecord, ordinal: number) => {
+      normalized.push(...this.normalizeHistoryEntry(raw, sessionId, ordinal));
+    });
 
     const toolResultMap = new Map<string, NormalizedMessage>();
     for (const msg of normalized) {
