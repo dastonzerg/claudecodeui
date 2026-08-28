@@ -543,7 +543,7 @@ export default function SidebarContent({
                             </span>
                           )}
                         </div>
-                        <p className="mt-0.5 truncate text-[11px] text-muted-foreground/70" title={project.fullPath}>
+                        <p className="mt-0.5 truncate text-[11px] text-muted-foreground" title={project.fullPath}>
                           {project.fullPath}
                         </p>
                       </div>
@@ -641,7 +641,7 @@ export default function SidebarContent({
                         </span>
                       </div>
                       {group.projectPath && (
-                        <p className="mt-0.5 truncate text-[11px] text-muted-foreground/70" title={group.projectPath}>
+                        <p className="mt-0.5 truncate text-[11px] text-muted-foreground" title={group.projectPath}>
                           {group.projectPath}
                         </p>
                       )}

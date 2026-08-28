@@ -135,7 +135,7 @@ export const BashCommandDisplay: React.FC<BashCommandDisplayProps> = ({
       </div>
 
       {description && !open && (
-        <div className="truncate px-2.5 pb-1.5 pl-[2.4rem] text-[11px] italic text-muted-foreground/70">
+        <div className="truncate px-2.5 pb-1.5 pl-[2.4rem] text-[11px] italic text-muted-foreground">
           {description}
         </div>
       )}
@@ -144,7 +144,7 @@ export const BashCommandDisplay: React.FC<BashCommandDisplayProps> = ({
       {open && hasOutput && (
         <div className="settings-content-enter border-t border-border/50 bg-background/50">
           {description && (
-            <div className="px-3 pt-2 text-[11px] italic text-muted-foreground/70">{description}</div>
+            <div className="px-3 pt-2 text-[11px] italic text-muted-foreground">{description}</div>
           )}
           <pre
             className={cn(

@@ -134,7 +134,7 @@ export const QuestionAnswerContent: React.FC<QuestionAnswerContentProps> = ({
                         className={`flex items-start gap-2 rounded-lg px-2.5 py-1.5 text-[12px] ${
                           wasSelected
                             ? 'border border-blue-200/60 bg-blue-50/80 dark:border-blue-800/40 dark:bg-blue-900/20'
-                            : 'text-gray-400 dark:text-gray-500'
+                            : 'text-gray-500 dark:text-gray-400'
                         }`}
                       >
                         <div className={`mt-0.5 h-3.5 w-3.5 flex-shrink-0 ${q.multiSelect ? 'rounded-[3px]' : 'rounded-full'} flex items-center justify-center border-[1.5px] ${
@@ -154,7 +154,7 @@ export const QuestionAnswerContent: React.FC<QuestionAnswerContentProps> = ({
                           </span>
                           {opt.description && (
                             <span className={`mt-0.5 block text-[11px] ${
-                              wasSelected ? 'text-blue-600/70 dark:text-blue-300/70' : 'text-gray-400 dark:text-gray-600'
+                              wasSelected ? 'text-blue-600/70 dark:text-blue-300/70' : 'text-gray-500 dark:text-gray-500'
                             }`}>
                               {opt.description}
                             </span>
