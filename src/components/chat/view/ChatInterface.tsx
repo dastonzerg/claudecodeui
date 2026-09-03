@@ -113,7 +113,6 @@ function ChatInterface({
     setTokenBudget,
     visibleMessageCount,
     visibleMessages,
-    loadEarlierMessages,
     loadMoreMessages,
     loadAllMessages,
     allMessagesLoaded,
@@ -380,10 +379,8 @@ function ChatInterface({
           isLoadingMoreMessages={isLoadingMoreMessages}
           hasMoreMessages={hasMoreMessages}
           totalMessages={totalMessages}
-          sessionMessagesCount={chatMessages.length}
           visibleMessageCount={visibleMessageCount}
           visibleMessages={visibleMessages}
-          loadEarlierMessages={loadEarlierMessages}
           loadMoreMessages={loadMoreMessages}
           loadAllMessages={loadAllMessages}
           allMessagesLoaded={allMessagesLoaded}

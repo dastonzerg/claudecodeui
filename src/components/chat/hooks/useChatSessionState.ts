@@ -10,8 +10,17 @@ import { createCachedDiffCalculator, type DiffCalculator } from '../utils/messag
 
 import { normalizedToChatMessages } from './useChatMessages';
 
-const MESSAGES_PER_PAGE = 20;
+// One press of "Load more" should feel like it bought you something. Twenty
+// rows was under a screenful on a desktop transcript, so reaching a point of
+// interest meant pressing repeatedly.
+const MESSAGES_PER_PAGE = 60;
 const INITIAL_VISIBLE_MESSAGES = 100;
+/**
+ * How far "Load more" widens the render window when every message is already
+ * in the store and only the render cap is hiding them. Larger than a fetch
+ * page because no network round trip is involved — it is pure mounting cost.
+ */
+const RENDER_WINDOW_STEP = 300;
 
 interface UseChatSessionStateArgs {
   selectedProject: Project | null;
@@ -397,11 +406,26 @@ export function useChatSessionState({
     return () => container.removeEventListener('scroll', handleScroll);
   }, [handleScroll, selectedSession?.id]);
 
+  /**
+   * The single "show me more history" action.
+   *
+   * Two different things can be hiding older messages, and which one it is is
+   * an implementation detail the reader should not have to reason about: the
+   * server may still be holding pages, or everything may already be in the
+   * store with only the render cap keeping it off screen. Fetch when there is
+   * something to fetch, otherwise widen the window.
+   */
   const loadMoreMessages = useCallback(() => {
     const container = scrollContainerRef.current;
     if (!container) return;
-    void loadOlderMessages(container);
-  }, [loadOlderMessages]);
+
+    if (hasMoreMessages && !allMessagesLoadedRef.current) {
+      void loadOlderMessages(container);
+      return;
+    }
+
+    setVisibleMessageCount((prev) => prev + RENDER_WINDOW_STEP);
+  }, [hasMoreMessages, loadOlderMessages]);
 
   useLayoutEffect(() => {
     if (!pendingScrollRestoreRef.current || !scrollContainerRef.current) return;
@@ -852,10 +876,6 @@ export function useChatSessionState({
     }
   }, [selectedSession, selectedProject, isLoadingAllMessages, currentSessionId, sessionStore]);
 
-  const loadEarlierMessages = useCallback(() => {
-    setVisibleMessageCount((prev) => prev + 100);
-  }, []);
-
   return {
     chatMessages,
     addMessage,
@@ -876,7 +896,6 @@ export function useChatSessionState({
     setTokenBudget,
     visibleMessageCount,
     visibleMessages,
-    loadEarlierMessages,
     loadMoreMessages,
     loadAllMessages,
     allMessagesLoaded,

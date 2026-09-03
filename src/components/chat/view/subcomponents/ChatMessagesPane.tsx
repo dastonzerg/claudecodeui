@@ -51,10 +51,8 @@ interface ChatMessagesPaneProps {
   isLoadingMoreMessages: boolean;
   hasMoreMessages: boolean;
   totalMessages: number;
-  sessionMessagesCount: number;
   visibleMessageCount: number;
   visibleMessages: ChatMessage[];
-  loadEarlierMessages: () => void;
   loadMoreMessages: () => void;
   loadAllMessages: () => void;
   allMessagesLoaded: boolean;
@@ -99,10 +97,8 @@ function ChatMessagesPane({
   isLoadingMoreMessages,
   hasMoreMessages,
   totalMessages,
-  sessionMessagesCount,
   visibleMessageCount,
   visibleMessages,
-  loadEarlierMessages,
   loadMoreMessages,
   loadAllMessages,
   allMessagesLoaded,
@@ -122,6 +118,17 @@ function ChatMessagesPane({
     () => groupConsecutiveTools(visibleMessages, Boolean(showThinking)),
     [visibleMessages, showThinking],
   );
+
+  // What the reader can actually see right now, against everything that exists.
+  // `visibleMessageCount` is Infinity once "Load all" has run, so the min also
+  // covers the fully-expanded case. `totalMessages` is 0 until the first paged
+  // response lands, hence the fallback.
+  const renderedMessageCount = Math.min(chatMessages.length, visibleMessageCount);
+  const knownTotalMessages = totalMessages || chatMessages.length;
+  // Older messages are hidden either because the server still holds pages, or
+  // because the render cap is below what the store already has.
+  const hasHiddenMessages =
+    (hasMoreMessages && !allMessagesLoaded) || renderedMessageCount < knownTotalMessages;
 
   // Stable, deterministic keys for the messages rendered this pass.
   //
@@ -217,19 +224,21 @@ function ChatMessagesPane({
             </div>
           )}
 
-          {/* Explicit controls for fetching earlier history — deliberately not
-              auto-triggered by scroll position (fighting the browser's native
-              momentum scroll on mobile used to shake the viewport), and always
-              rendered together as one unit rather than each fading in/out on
-              its own schedule, which used to shove the viewport up or down
-              independently of any actual message-list height change. */}
-          {((hasMoreMessages && !allMessagesLoaded) || isLoadingAllMessages || loadAllJustFinished) && (
+          {/* One control for "show me more history", whether the rest is still
+              on the server or already in the store behind the render cap —
+              which of the two it is has no bearing on what the reader wants.
+              Deliberately not auto-triggered by scroll position (fighting the
+              browser's native momentum scroll on mobile used to shake the
+              viewport), and rendered as one unit rather than each part fading
+              in/out on its own schedule, which used to shove the viewport up or
+              down independently of any actual message-list height change. */}
+          {(hasHiddenMessages || isLoadingAllMessages || loadAllJustFinished) && (
             <div className="border-b border-gray-200 pb-2 dark:border-gray-700">
-              {hasMoreMessages && !isLoadingMoreMessages && !allMessagesLoaded && (
+              {hasHiddenMessages && !isLoadingMoreMessages && (
                 <div className="py-2 text-center text-sm text-gray-500 dark:text-gray-400">
-                  {totalMessages > 0 && (
+                  {knownTotalMessages > 0 && (
                     <span className="mr-2">
-                      {t('session.messages.showingOf', { shown: sessionMessagesCount, total: totalMessages })}
+                      {t('session.messages.showingOf', { shown: renderedMessageCount, total: knownTotalMessages })}
                     </span>
                   )}
                   <button
@@ -244,26 +253,9 @@ function ChatMessagesPane({
               <LoadAllMessagesOverlay
                 isLoadingAllMessages={isLoadingAllMessages}
                 loadAllJustFinished={loadAllJustFinished}
-                totalMessages={totalMessages}
+                totalMessages={knownTotalMessages}
                 onLoadAllMessages={loadAllMessages}
               />
-            </div>
-          )}
-
-          {/* Legacy message count indicator (for non-paginated view) */}
-          {!hasMoreMessages && chatMessages.length > visibleMessageCount && (
-            <div className="border-b border-gray-200 py-2 text-center text-sm text-gray-500 dark:border-gray-700 dark:text-gray-400">
-              {t('session.messages.showingLast', { count: visibleMessageCount, total: chatMessages.length })} |
-              <button className="ml-1 text-blue-600 underline hover:text-blue-700" onClick={loadEarlierMessages}>
-                {t('session.messages.loadEarlier')}
-              </button>
-              {' | '}
-              <button
-                className="text-blue-600 underline hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
-                onClick={loadAllMessages}
-              >
-                {t('session.messages.loadAll')}
-              </button>
             </div>
           )}
 
