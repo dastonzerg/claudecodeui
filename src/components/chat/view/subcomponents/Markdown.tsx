@@ -5,9 +5,9 @@ import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
-import { oneDark, oneLight } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { useTranslation } from 'react-i18next';
 
+import { codeThemeDark, codeThemeLight } from '../../../../utils/codeTheme';
 import { normalizeInlineCodeFences } from '../../utils/chatFormatting';
 import { copyTextToClipboard } from '../../../../utils/clipboard';
 import { normalizeLatexDelimiters } from '../../../../utils/markdownMath';
@@ -136,7 +136,7 @@ const CodeBlock = ({ node, inline, className, children, ...props }: CodeBlockPro
 
       <SyntaxHighlighter
         language={language}
-        style={isDarkMode ? oneDark : oneLight}
+        style={isDarkMode ? codeThemeDark : codeThemeLight}
         customStyle={{
           margin: 0,
           borderRadius: '0.75rem',
