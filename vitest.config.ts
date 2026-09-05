@@ -7,7 +7,7 @@ import path from 'node:path';
 export default defineConfig({
   test: {
     environment: 'node',
-    include: ['src/**/*.test.ts'],
+    include: ['src/**/*.test.{ts,tsx}'],
     // These are written against node:test + node:assert, not Vitest, and are
     // out of scope for this plan. Under Vitest they fail with
     // "No test suite found" because they import Node's real `test` function
