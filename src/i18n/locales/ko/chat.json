@@ -147,9 +147,6 @@
     },
     "messages": {
       "showingOf": "{{total}}개 중 {{shown}}개 표시",
-      "scrollToLoad": "위로 스크롤하여 더 로드",
-      "showingLast": "마지막 {{count}}개 메시지 표시 (총 {{total}}개)",
-      "loadEarlier": "이전 메시지 로드",
       "loadAll": "모든 메시지 로드",
       "loadingAll": "모든 메시지 로딩 중...",
       "allLoaded": "모든 메시지 로드 완료",

@@ -147,9 +147,6 @@
     },
     "messages": {
       "showingOf": "Visualizzati {{shown}} di {{total}} messaggi",
-      "scrollToLoad": "Scorri in alto per caricare altri",
-      "showingLast": "Visualizzati ultimi {{count}} messaggi ({{total}} totali)",
-      "loadEarlier": "Carica messaggi precedenti",
       "loadAll": "Carica tutti i messaggi",
       "loadingAll": "Caricamento di tutti i messaggi...",
       "allLoaded": "Tutti i messaggi caricati",

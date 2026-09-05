@@ -182,9 +182,6 @@
     },
     "messages": {
       "showingOf": "Showing {{shown}} of {{total}} messages",
-      "scrollToLoad": "Scroll up to load more",
-      "showingLast": "Showing last {{count}} messages ({{total}} total)",
-      "loadEarlier": "Load earlier messages",
       "loadMore": "Load more",
       "loadAll": "Load all messages",
       "loadingAll": "Loading all messages...",
